@@ -74,7 +74,17 @@ class VectorStore:
         filters: Optional[Dict] = None,
         limit: int = 5,
     ) -> List[Dict]:
-        """Search for similar documents in a collection."""
+        """Search for similar documents in a single collection."""
+        return self._search_collection(collection_name, query_vector, filters, limit)
+
+    def _search_collection(
+        self,
+        collection_name: str,
+        query_vector: List[float],
+        filters: Optional[Dict] = None,
+        limit: int = 5,
+    ) -> List[Dict]:
+        """Internal method to search a single collection."""
         where_filter = filters
 
         query = (
@@ -108,6 +118,30 @@ class VectorStore:
         except Exception as e:
             print(f"Error in vector store search: {type(e).__name__}: {str(e)}")
             return []
+
+    def search_all_collections(
+        self,
+        query_vector: List[float],
+        filters: Optional[Dict] = None,
+        limit: int = 5,
+    ) -> List[Dict]:
+        """Search for similar documents across all collections."""
+        all_results = []
+        collections = self.list_collections()
+
+        for collection in collections:
+            results = self._search_collection(collection, query_vector, filters, limit)
+            # Add collection name to each result
+            for result in results:
+                result["collection"] = collection
+            all_results.extend(results)
+
+        # Sort all results by relevance (assuming results are already sorted within each collection)
+        # Take top 'limit' results across all collections
+        return sorted(
+            all_results,
+            key=lambda x: x.get("_additional", {}).get("distance", float("inf")),
+        )[:limit]
 
     def list_collections(self) -> List[str]:
         """List all available collections."""

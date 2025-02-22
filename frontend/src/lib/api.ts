@@ -91,7 +91,7 @@ export interface Document {
 
 export interface QueryRequest {
   query: string;
-  index_name: string;
+  index_name?: string;
   filters?: Record<string, any>;
 }
 
@@ -159,10 +159,7 @@ export const documents = {
   },
 
   query: async (request: QueryRequest): Promise<QueryResponse> => {
-    const response = await api.post(
-      `/documents/${request.index_name}/query`,
-      request
-    );
+    const response = await api.post("/documents/query", request);
     return response.data;
   },
 };

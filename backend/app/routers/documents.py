@@ -30,7 +30,7 @@ class DocumentAccess(BaseModel):
 
 class QueryRequest(BaseModel):
     query: str
-    index_name: str
+    index_name: Optional[str] = None
     filters: Optional[Dict] = None
 
 
@@ -228,13 +228,15 @@ async def upload_document(
         )
 
 
-@router.post("/documents/{index_name}/query", response_model=QueryResponse)
+@router.post("/documents/query", response_model=QueryResponse)
 async def query_documents(
     query_request: QueryRequest, current_user: User = Depends(get_current_user)
 ):
-    """Query documents using RAG."""
+    """Query documents using RAG across all collections or a specific collection."""
     try:
-        print(f"Processing query request for index: {query_request.index_name}")
+        print(
+            f"Processing query request for index: {query_request.index_name or 'all'}"
+        )
         print(f"Query: {query_request.query}")
 
         # Get query embedding
@@ -266,9 +268,14 @@ async def query_documents(
 
         # Search vector store with access control filters
         print("Searching vector store with access filters...")
-        results = vector_store.search(
-            query_request.index_name, query_embedding, filters=filters
-        )
+        if query_request.index_name:
+            results = vector_store.search(
+                query_request.index_name, query_embedding, filters=filters
+            )
+        else:
+            results = vector_store.search_all_collections(
+                query_embedding, filters=filters
+            )
         print(f"Found {len(results)} results from vector store")
 
         # Parse metadata JSON strings

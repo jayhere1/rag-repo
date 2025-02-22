@@ -8,7 +8,8 @@ import {
   Card,
   Text,
   Box,
-  Loader
+  Loader,
+  Badge
 } from '@mantine/core'
 import { useParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
@@ -16,7 +17,7 @@ import { documents, QueryResponse } from '../lib/api'
 import { notifications } from '@mantine/notifications'
 
 export default function QueryPage () {
-  const { indexName = '' } = useParams()
+  const { indexName } = useParams()
   const [query, setQuery] = useState('')
   const [result, setResult] = useState<QueryResponse | null>(null)
 
@@ -24,7 +25,7 @@ export default function QueryPage () {
     mutationFn: () =>
       documents.query({
         query,
-        index_name: indexName
+        ...(indexName ? { index_name: indexName } : {})
       }),
     onSuccess: data => {
       setResult(data)
@@ -49,11 +50,11 @@ export default function QueryPage () {
   return (
     <Container size='lg'>
       <Title order={2} mb='xl'>
-        Query {indexName} Documents
+        {indexName ? `Query ${indexName} Documents` : 'Query All Documents'}
       </Title>
 
       <form onSubmit={handleSubmit}>
-        <Stack spacing='md'>
+        <Stack gap='md'>
           <TextInput
             label='Your Question'
             placeholder='Ask anything about your documents...'
@@ -74,14 +75,14 @@ export default function QueryPage () {
       </form>
 
       {queryMutation.isPending && (
-        <Box mt='xl' sx={{ textAlign: 'center' }}>
+        <Box mt='xl' style={{ textAlign: 'center' }}>
           <Loader size='xl' />
           <Text mt='md'>Analyzing documents and generating answer...</Text>
         </Box>
       )}
 
       {result && !queryMutation.isPending && (
-        <Stack mt='xl' spacing='lg'>
+        <Stack mt='xl' gap='lg'>
           <Card withBorder>
             <Title order={3} size='h4' mb='md'>
               Answer
@@ -94,10 +95,19 @@ export default function QueryPage () {
           </Title>
           {result.sources.map((source, index) => (
             <Card key={index} withBorder>
-              <Text size='sm' mb='xs' color='dimmed'>
-                Source {index + 1}
-              </Text>
-              <Text>{source.text}</Text>
+              <Stack gap='xs'>
+                <Box
+                  style={{ display: 'flex', gap: '8px', alignItems: 'center' }}
+                >
+                  <Text size='sm' color='dimmed'>
+                    Source {index + 1}
+                  </Text>
+                  {source.metadata?.collection && (
+                    <Badge color='blue'>{source.metadata.collection}</Badge>
+                  )}
+                </Box>
+                <Text>{source.text}</Text>
+              </Stack>
             </Card>
           ))}
         </Stack>

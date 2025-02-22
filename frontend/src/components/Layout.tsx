@@ -42,6 +42,7 @@ export default function Layout () {
       <AppShell.Navbar p='xs'>
         <AppShell.Section grow mt='xs'>
           <NavButton to='/indexes' label='Indexes' />
+          <NavButton to='/query' label='Query All Documents' />
         </AppShell.Section>
         <AppShell.Section>
           <Group justify='space-between' p='xs'>

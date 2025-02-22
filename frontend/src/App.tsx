@@ -36,6 +36,7 @@ function App () {
                     path='indexes/:indexName/documents'
                     element={<DocumentsPage />}
                   />
+                  <Route path='query' element={<QueryPage />} />
                   <Route
                     path='indexes/:indexName/query'
                     element={<QueryPage />}
