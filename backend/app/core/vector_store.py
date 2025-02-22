@@ -1,6 +1,6 @@
 import weaviate
 import json
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from .config import settings
 
 
@@ -46,28 +46,26 @@ class VectorStore:
 
     def add_documents(
         self, collection_name: str, documents: List[Dict], vectors: List[List[float]]
-    ):
+    ) -> List[str]:
         """Add documents with their vectors to a collection."""
+        added_ids = []
         with self.client.batch as batch:
             batch.batch_size = 100
             for doc, vector in zip(documents, vectors):
-                # Ensure metadata is a dict, not a JSON string
-                metadata = doc["metadata"]
-                if isinstance(metadata, str):
-                    try:
-                        metadata = json.loads(metadata)
-                    except json.JSONDecodeError:
-                        pass
-
                 properties = {
                     "text": doc["text"],
-                    "metadata": json.dumps(metadata),
+                    "metadata": json.dumps(doc["metadata"]),
                 }
-                batch.add_data_object(
+
+                # Add document and collect its ID
+                doc_id = batch.add_data_object(
                     data_object=properties,
                     class_name=collection_name,
                     vector=vector,
                 )
+                added_ids.append(doc_id)
+
+        return added_ids
 
     def search(
         self,
@@ -77,15 +75,7 @@ class VectorStore:
         limit: int = 5,
     ) -> List[Dict]:
         """Search for similar documents in a collection."""
-        where_filter = None
-        if filters:
-            where_filter = {
-                "operator": "And",
-                "operands": [
-                    {"path": ["metadata", k], "operator": "Equal", "valueString": v}
-                    for k, v in filters.items()
-                ],
-            }
+        where_filter = filters
 
         query = (
             self.client.query.get(collection_name, ["text", "metadata"])
@@ -98,7 +88,14 @@ class VectorStore:
 
         try:
             result = query.do()
-            results = result["data"]["Get"][collection_name]
+            if not result or "data" not in result:
+                print("No data returned from vector store")
+                return []
+
+            results = result.get("data", {}).get("Get", {}).get(collection_name, [])
+            if not results:
+                print(f"No results found in collection: {collection_name}")
+                return []
 
             # Process each result to ensure proper structure
             processed_results = []
@@ -117,7 +114,51 @@ class VectorStore:
         schema = self.client.schema.get()
         return [class_obj["class"] for class_obj in schema["classes"]]
 
-    def get_collection_info(self, collection_name: str) -> Dict:
+    def list_documents(
+        self, collection_name: str, skip: int = 0, limit: int = 10
+    ) -> List[Dict[str, Any]]:
+        """List documents in a collection with pagination."""
+        try:
+            query = (
+                self.client.query.get(
+                    collection_name, ["text", "metadata", "_additional {id}"]
+                )
+                .with_limit(limit)
+                .with_offset(skip)
+            )
+
+            result = query.do()
+            if not result or "data" not in result:
+                return []
+
+            documents = result.get("data", {}).get("Get", {}).get(collection_name, [])
+
+            # Process documents to include IDs
+            processed_docs = []
+            for doc in documents:
+                if "_additional" in doc and "id" in doc["_additional"]:
+                    processed_docs.append(
+                        {
+                            "id": doc["_additional"]["id"],
+                            "text": doc["text"],
+                            "metadata": doc["metadata"],
+                        }
+                    )
+            return processed_docs
+        except Exception as e:
+            print(f"Error listing documents: {type(e).__name__}: {str(e)}")
+            return []
+
+    def delete_document(self, collection_name: str, document_id: str) -> bool:
+        """Delete a document by ID."""
+        try:
+            self.client.data_object.delete(class_name=collection_name, uuid=document_id)
+            return True
+        except Exception as e:
+            print(f"Error deleting document: {type(e).__name__}: {str(e)}")
+            return False
+
+    def get_collection_info(self, collection_name: str) -> Optional[Dict]:
         """Get information about a specific collection."""
         try:
             schema = self.client.schema.get(collection_name)

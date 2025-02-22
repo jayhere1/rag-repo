@@ -70,6 +70,25 @@ export const indexes = {
   },
 };
 
+export interface DocumentAccess {
+  roles: string[];
+  users: string[];
+}
+
+export interface DocumentMetadata {
+  owner: string;
+  allowed_roles: string[];
+  allowed_users: string[];
+  filename: string;
+  upload_time: string;
+}
+
+export interface Document {
+  id: string;
+  text: string;
+  metadata: DocumentMetadata;
+}
+
 export interface QueryRequest {
   query: string;
   index_name: string;
@@ -84,16 +103,47 @@ export interface QueryResponse {
   }>;
 }
 
+export interface ListDocumentsResponse {
+  documents: Document[];
+}
+
 export const documents = {
-  upload: async (
+  list: async (
     indexName: string,
-    file: File,
-    metadata?: Record<string, any>
-  ) => {
+    page = 1,
+    limit = 10
+  ): Promise<ListDocumentsResponse> => {
+    const response = await api.get(`/documents/${indexName}`, {
+      params: { page, limit },
+    });
+    return response.data;
+  },
+
+  delete: async (indexName: string, documentId: string): Promise<void> => {
+    await api.delete(`/documents/${indexName}/${documentId}`);
+  },
+
+  upload: async (indexName: string, file: File, access: DocumentAccess) => {
     const formData = new FormData();
     formData.append("file", file);
-    if (metadata) {
-      formData.append("metadata", JSON.stringify(metadata));
+
+    // Log what we're sending
+    console.log("Uploading document with access:", access);
+
+    // Send access data as form field
+    formData.append(
+      "access",
+      JSON.stringify({
+        access: {
+          roles: access.roles,
+          users: access.users,
+        },
+      })
+    );
+
+    // Log form data entries
+    for (const [key, value] of formData.entries()) {
+      console.log(`Form data entry - ${key}:`, value);
     }
 
     const response = await api.post(
