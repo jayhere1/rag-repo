@@ -1,5 +1,23 @@
 #!/bin/bash
 
+# Setup and install backend requirements
+echo "Setting up backend environment..."
+cd backend
+if [ ! -d "venv" ]; then
+    echo "Creating virtual environment..."
+    python3 -m venv venv
+fi
+source venv/bin/activate
+echo "Installing backend requirements..."
+pip install -r requirements.txt
+cd ..
+
+# Install frontend dependencies
+echo "Installing frontend dependencies..."
+cd frontend
+npm install
+cd ..
+
 # Start services in the background
 echo "Starting Weaviate..."
 docker-compose up -d

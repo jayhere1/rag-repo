@@ -12,7 +12,6 @@ import {
 import { AuthProvider } from './contexts/AuthContext'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
-import LoginPage from './pages/LoginPage'
 import IndexesPage from './pages/IndexesPage'
 import DocumentsPage from './pages/DocumentsPage'
 import QueryPage from './pages/QueryPage'
@@ -27,7 +26,6 @@ function App () {
         <AuthProvider>
           <Router>
             <Routes>
-              <Route path='/login' element={<LoginPage />} />
               <Route element={<ProtectedRoute />}>
                 <Route path='/' element={<Layout />}>
                   <Route index element={<Navigate to='/indexes' replace />} />

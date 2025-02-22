@@ -1,5 +1,6 @@
-import { Navigate, Outlet } from 'react-router-dom'
+import { Outlet } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import Layout from './Layout'
 
 export default function ProtectedRoute () {
   const { user, isLoading } = useAuth()
@@ -9,7 +10,7 @@ export default function ProtectedRoute () {
   }
 
   if (!user) {
-    return <Navigate to='/login' replace />
+    return <Layout initialLoginOpen={true} />
   }
 
   return <Outlet />
