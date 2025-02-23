@@ -1,5 +1,27 @@
 
+version: '3.8'
+
 services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      - WEAVIATE_URL=http://weaviate:8080
+    depends_on:
+      - weaviate
+
   weaviate:
     image: semitechnologies/weaviate:1.19.6
     ports:
@@ -13,7 +35,38 @@ services:
       CLUSTER_HOSTNAME: 'node1'
     volumes:
       - weaviate_data:/var/lib/weaviate
-    restart: on-failure:0
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/ssl:/etc/nginx/ssl
+      - ./nginx/www:/var/www
+      - certbot-etc:/etc/letsencrypt
+      - certbot-var:/var/lib/letsencrypt
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-var:/var/lib/letsencrypt
+      - ./nginx/www:/var/www
+    depends_on:
+      - nginx
 
 volumes:
   weaviate_data:
+  certbot-etc:
+  certbot-var:
+
+networks:
+  default:
+    name: rag_network
