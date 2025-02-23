@@ -16,7 +16,7 @@ cd ..
 
 # Start services in the background
 echo "Starting Weaviate..."
-docker-compose up -d
+docker-compose -f docker-compose.dev.yml up -d
 
 echo "Starting backend server..."
 cd backend
@@ -34,7 +34,7 @@ cleanup() {
     echo "Shutting down services..."
     kill $BACKEND_PID
     kill $FRONTEND_PID
-    docker-compose down
+    docker-compose -f docker-compose.dev.yml down
     exit 0
 }
 

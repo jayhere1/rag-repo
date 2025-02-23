@@ -1,6 +1,7 @@
+import os
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from typing import Dict, List
+from typing import List
 from ..core.auth import (
     User,
     Token,
@@ -12,18 +13,39 @@ from ..core.auth import (
 
 router = APIRouter()
 
+# Get password from environment variable
+USER_PASSWORD = os.environ["USER_PASSWORD"]  # Required environment variable
+
 # In-memory user store (replace with database in production)
 fake_users_db = {
-    "admin": {
-        "username": "admin",
-        "hashed_password": get_password_hash("admin"),
+    "admin@demo.com": {
+        "username": "admin@demo.com",
+        "hashed_password": get_password_hash(USER_PASSWORD),
         "roles": ["admin"],
         "disabled": False,
     },
-    "user": {
-        "username": "user",
-        "hashed_password": get_password_hash("user"),
-        "roles": ["user"],
+    "hr@demo.com": {
+        "username": "hr@demo.com",
+        "hashed_password": get_password_hash(USER_PASSWORD),
+        "roles": ["hr"],
+        "disabled": False,
+    },
+    "operator@demo.com": {
+        "username": "operator@demo.com",
+        "hashed_password": get_password_hash(USER_PASSWORD),
+        "roles": ["operator"],
+        "disabled": False,
+    },
+    "safetyinspector@demo.com": {
+        "username": "safetyinspector@demo.com",
+        "hashed_password": get_password_hash(USER_PASSWORD),
+        "roles": ["inspector"],
+        "disabled": False,
+    },
+    "fieldtechnician@demo.com": {
+        "username": "fieldtechnician@demo.com",
+        "hashed_password": get_password_hash(USER_PASSWORD),
+        "roles": ["technician"],
         "disabled": False,
     },
 }
