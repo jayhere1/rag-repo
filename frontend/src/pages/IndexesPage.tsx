@@ -111,7 +111,7 @@ export default function IndexesPage() {
 
         <Tabs.Panel value='manage' pt='xl'>
           <Card withBorder p='xl'>
-            {indexList.map((indexName: string) => (
+            {indexList.map(indexName => (
               <Card
                 key={indexName}
                 shadow='sm'
@@ -127,14 +127,7 @@ export default function IndexesPage() {
                     {indexName}
                   </Text>
                   <Group>
-                    <Button 
-                      variant='light' 
-                      size='sm'
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate('/documents', { state: { selectedIndex: indexName } });
-                      }}
-                    >
+                    <Button variant='light' size='sm'>
                       View Documents
                     </Button>
                     {user?.roles.includes('admin') && (

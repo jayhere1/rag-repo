@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Dict, Any
-from pydantic import RootModel, BaseModel  # Import RootModel
+from pydantic import RootModel
+import json
 from ..core.auth import User, check_role, get_current_user
 from ..core.vector_store import VectorStore
 
@@ -53,9 +54,41 @@ async def delete_index(
 
 @router.get("/indexes", response_model=List[str])
 async def list_indexes(current_user: User = Depends(get_current_user)):
-    """List all available indexes."""
+    """List indexes that the user has access to."""
     try:
-        return vector_store.list_collections()
+        all_indexes = vector_store.list_collections()
+        accessible_indexes = []
+
+        # Admin can see all indexes
+        if "admin" in current_user.roles:
+            return all_indexes
+
+        # For non-admin users, check each index for accessible documents
+        for index_name in all_indexes:
+            # Get documents from the index
+            documents = vector_store.list_documents(index_name)
+
+            # Check if user has access to any document in this index
+            for doc in documents:
+                try:
+                    metadata = doc.get("metadata", "{}")
+                    if isinstance(metadata, str):
+                        metadata = json.loads(metadata)
+
+                    allowed_roles = metadata.get("allowed_roles", [])
+                    allowed_users = metadata.get("allowed_users", [])
+
+                    roles = current_user.roles
+                    has_role = any(role in allowed_roles for role in roles)
+                    has_user_access = current_user.username in allowed_users
+                    if has_role or has_user_access:
+                        accessible_indexes.append(index_name)
+                        # Found accessible document, no need to check more
+                        break
+                except Exception:
+                    continue
+
+        return list(set(accessible_indexes))  # Remove duplicates
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)

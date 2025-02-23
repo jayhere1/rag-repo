@@ -30,11 +30,12 @@ export interface User {
 
 export const auth = {
   login: async (credentials: LoginCredentials) => {
-    const formData = new FormData();
+    // Create URLSearchParams for proper x-www-form-urlencoded format
+    const formData = new URLSearchParams();
     formData.append("username", credentials.username);
     formData.append("password", credentials.password);
 
-    const response = await api.post("/auth/token", formData, {
+    const response = await api.post("/auth/token", formData.toString(), {
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
@@ -70,9 +71,30 @@ export const indexes = {
   },
 };
 
+export interface DocumentAccess {
+  roles: string[];
+  users: string[];
+}
+
+export interface DocumentMetadata {
+  owner: string;
+  allowed_roles: string[];
+  allowed_users: string[];
+  filename: string;
+  upload_time: string;
+  index_name: string;
+  size: number;
+}
+
+export interface Document {
+  id: string;
+  text: string;
+  metadata: DocumentMetadata;
+}
+
 export interface QueryRequest {
   query: string;
-  index_name: string;
+  index_name?: string;
   filters?: Record<string, any>;
 }
 
@@ -84,16 +106,69 @@ export interface QueryResponse {
   }>;
 }
 
+export interface ListDocumentsResponse {
+  documents: Document[];
+}
+
 export const documents = {
-  upload: async (
+  list: async (
     indexName: string,
-    file: File,
-    metadata?: Record<string, any>
-  ) => {
+    page = 1,
+    limit = 10
+  ): Promise<ListDocumentsResponse> => {
+    const response = await api.get(`/documents/${indexName}`, {
+      params: { page, limit },
+    });
+    
+    // Add index_name to each document's metadata
+    // Ensure we preserve all original metadata fields while adding index_name
+    const documents = response.data.documents.map((doc: Document) => {
+      // First check if metadata exists and has the expected structure
+      const metadata = doc.metadata || {};
+      return {
+        ...doc,
+        metadata: {
+          ...metadata,
+          index_name: indexName,
+          size: metadata.size || 0 // Ensure size is always present
+        }
+      };
+    });
+    
+    return { documents };
+  },
+
+  delete: async (indexName: string, documentId: string): Promise<void> => {
+    await api.delete(`/documents/${indexName}/${documentId}`);
+  },
+
+  upload: async (indexName: string, file: File, access: DocumentAccess) => {
     const formData = new FormData();
     formData.append("file", file);
-    if (metadata) {
-      formData.append("metadata", JSON.stringify(metadata));
+
+    // Log request details
+    console.log("Uploading document:", {
+      file,
+      indexName,
+      access
+    });
+
+    // Send access data as form field
+    const accessData = {
+      access: {
+        roles: access.roles,
+        users: access.users
+      }
+    };
+    
+    // Log the stringified access data for debugging
+    console.log("Access data to be sent:", JSON.stringify(accessData, null, 2));
+    
+    formData.append("access", JSON.stringify(accessData));
+
+    // Log form data entries
+    for (const [key, value] of formData.entries()) {
+      console.log(`Form data entry - ${key}:`, value);
     }
 
     const response = await api.post(
@@ -109,10 +184,7 @@ export const documents = {
   },
 
   query: async (request: QueryRequest): Promise<QueryResponse> => {
-    const response = await api.post(
-      `/documents/${request.index_name}/query`,
-      request
-    );
+    const response = await api.post("/documents/query", request);
     return response.data;
   },
 };
