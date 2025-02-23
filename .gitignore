@@ -35,6 +35,9 @@ __pycache__/
 venv/
 .env/
 
+# Deployment scripts
+deploy.sh
+
 # Build
 dist/
 build/
