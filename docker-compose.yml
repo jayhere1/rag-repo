@@ -44,6 +44,7 @@ services:
       - ./nginx/www:/var/www
       - certbot-etc:/etc/letsencrypt:ro
       - certbot-var:/var/lib/letsencrypt:ro
+      - ./nginx/www:/var/www/html
     depends_on:
       - frontend
       - backend
@@ -54,10 +55,10 @@ services:
     volumes:
       - certbot-etc:/etc/letsencrypt
       - certbot-var:/var/lib/letsencrypt
-      - ./nginx/www:/var/www
+      - ./nginx/www:/var/www/html
     depends_on:
       - nginx
-    command: certonly --webroot --webroot-path=/var/www --email jay@bcdilab.com --agree-tos --no-eff-email -d innov8nxt-factorygpt.com -d www.innov8nxt-factorygpt.com
+    command: certonly --webroot --webroot-path=/var/www/html --email jay@bcdilab.com --agree-tos --no-eff-email -d innov8nxt-factorygpt.com -d www.innov8nxt-factorygpt.com
 
 volumes:
   weaviate_data:
