@@ -3,8 +3,9 @@ from typing import List
 
 
 class Settings(BaseSettings):
-    # JWT Settings
+    # Authentication Settings
     SECRET_KEY: str
+    USER_PASSWORD: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
