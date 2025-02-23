@@ -21,7 +21,7 @@ docker-compose up -d
 echo "Starting backend server..."
 cd backend
 source venv/bin/activate
-python3.9 -m uvicorn app.main:app --reload --port 8001 &
+python -m uvicorn app.main:app --reload --port 8001 &
 BACKEND_PID=$!
 
 echo "Starting frontend dev server..."

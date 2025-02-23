@@ -43,31 +43,77 @@ class LLMClient:
 
     def get_embeddings(self, texts: List[str]) -> List[List[float]]:
         """Get embeddings for a list of texts."""
-        try:
-            response = self.embedding_client.embeddings.create(
-                model=self.embedding_deployment, input=texts
+        all_embeddings = []
+        batch_size = 50  # Process 50 texts at a time
+
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i : i + batch_size]
+            print(
+                f"Getting embeddings for batch {i // batch_size + 1} of {(len(texts) + batch_size - 1) // batch_size}"
             )
-            return [item.embedding for item in response.data]
-        except Exception as e:
-            raise Exception(f"Failed to get embeddings: {str(e)}")
+
+            try:
+                response = self.embedding_client.embeddings.create(
+                    model=self.embedding_deployment, input=batch
+                )
+                batch_embeddings = [item.embedding for item in response.data]
+                all_embeddings.extend(batch_embeddings)
+            except Exception as e:
+                print(f"Error getting embeddings for batch: {str(e)}")
+                # Retry with smaller batch if error occurs
+                if len(batch) > 1:
+                    print("Retrying with smaller batch size...")
+                    half_size = len(batch) // 2
+                    first_half = batch[:half_size]
+                    second_half = batch[half_size:]
+
+                    try:
+                        # Process first half
+                        response = self.embedding_client.embeddings.create(
+                            model=self.embedding_deployment, input=first_half
+                        )
+                        all_embeddings.extend(
+                            [item.embedding for item in response.data]
+                        )
+
+                        # Process second half
+                        response = self.embedding_client.embeddings.create(
+                            model=self.embedding_deployment, input=second_half
+                        )
+                        all_embeddings.extend(
+                            [item.embedding for item in response.data]
+                        )
+                    except Exception as retry_error:
+                        print(f"Error during retry: {str(retry_error)}")
+                        raise Exception(
+                            f"Failed to get embeddings even with smaller batch: {str(retry_error)}"
+                        )
+                else:
+                    raise Exception(
+                        f"Failed to get embedding for single text: {str(e)}"
+                    )
+
+        return all_embeddings
 
     def get_completion(
         self, query: str, context: List[Dict], max_tokens: int = 500
     ) -> str:
         """Generate completion using RAG context."""
-        # Format context for the prompt
+        # Format context with numbers for citation
         formatted_context = "\n\n".join(
             f"Context {i + 1}:\n{item['text']}" for i, item in enumerate(context)
         )
 
-        prompt = f"""Use the following contexts to answer the question. 
+        prompt = f"""Use the following numbered contexts to answer the question.
 If you cannot find the answer in the contexts, say so.
+Important: Use superscript numbers (e.g. ¹, ², ³) to cite your sources inline with the text.
+For example: "The model uses a four-stage pipeline¹ and includes rejection sampling²."
 
 {formatted_context}
 
 Question: {query}
 
-Answer:"""
+Answer (with citations):"""
 
         try:
             print(f"Attempting chat completion with deployment: {self.chat_deployment}")
@@ -79,7 +125,7 @@ Answer:"""
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a helpful assistant that answers questions based on the provided context.",
+                        "content": "You are a helpful assistant that answers questions based on the provided context. Use superscript numbers to cite your sources inline with the text. Ensure each claim is supported by a citation.",
                     },
                     {"role": "user", "content": prompt},
                 ],

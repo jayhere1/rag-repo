@@ -15,15 +15,13 @@ import {
   MultiSelect,
   Select
 } from '@mantine/core'
-import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { indexes, documents, Document } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import { IconTrash, IconUpload } from '@tabler/icons-react'
 import { notifications } from '@mantine/notifications'
 
-export default function DocumentsPage() {
-  const navigate = useNavigate()
+export default function DocumentsPage () {
   const { user } = useAuth()
   const [allDocuments, setAllDocuments] = useState<Document[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -32,17 +30,20 @@ export default function DocumentsPage() {
   const [selectedRoles, setSelectedRoles] = useState<string[]>([])
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
   const [uploadLoading, setUploadLoading] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const itemsPerPage = 10
 
   const { data: indexList = [] } = useQuery({
     queryKey: ['indexes'],
     queryFn: indexes.list
   })
 
-  const fetchAllDocuments = async () => {
+  const fetchAllDocuments = async (page: number = 1) => {
     try {
       setIsLoading(true)
-      const documentsPromises = indexList.map((indexName: string) => 
-        documents.list(indexName).catch(error => {
+      const documentsPromises = indexList.map((indexName: string) =>
+        documents.list(indexName, page, itemsPerPage).catch(error => {
           console.error(`Error fetching documents for ${indexName}:`, error)
           return { documents: [] }
         })
@@ -50,10 +51,19 @@ export default function DocumentsPage() {
       const results = await Promise.all(documentsPromises)
       const allDocs = results.flatMap(result => result.documents || [])
       setAllDocuments(allDocs)
+
+      // Calculate total pages based on the total number of documents
+      // For now, we'll just use the current page if we have full items, otherwise we're on the last page
+      if (allDocs.length === itemsPerPage) {
+        setTotalPages(page + 1)
+      } else {
+        setTotalPages(page)
+      }
     } catch (error) {
       notifications.show({
         title: 'Error',
-        message: error instanceof Error ? error.message : 'Failed to fetch documents',
+        message:
+          error instanceof Error ? error.message : 'Failed to fetch documents',
         color: 'red'
       })
     } finally {
@@ -63,9 +73,9 @@ export default function DocumentsPage() {
 
   useEffect(() => {
     if (indexList.length > 0) {
-      fetchAllDocuments()
+      fetchAllDocuments(currentPage)
     }
-  }, [indexList])
+  }, [indexList, currentPage])
 
   const handleDelete = async (indexName: string, documentId: string) => {
     try {
@@ -79,7 +89,8 @@ export default function DocumentsPage() {
     } catch (error) {
       notifications.show({
         title: 'Error',
-        message: error instanceof Error ? error.message : 'Failed to delete document',
+        message:
+          error instanceof Error ? error.message : 'Failed to delete document',
         color: 'red'
       })
     }
@@ -93,35 +104,38 @@ export default function DocumentsPage() {
         </Group>
 
         {user?.roles.includes('admin') && indexList.length > 0 && (
-          <Card withBorder p="xl">
+          <Card withBorder p='xl'>
             <Stack>
               <Title order={4}>Upload Document</Title>
               <FileInput
-                label="Select Document"
-                placeholder="Click to select a file"
+                label='Select Document'
+                placeholder='Click to select a file'
                 value={selectedFile}
                 onChange={setSelectedFile}
-                accept=".pdf,.doc,.docx,.txt"
+                accept='.pdf,.doc,.docx,.txt'
                 leftSection={<IconUpload size={14} />}
               />
               <Select
-                label="Select Index"
-                placeholder="Choose an index"
+                label='Select Index'
+                placeholder='Choose an index'
                 value={selectedIndex}
-                onChange={(value) => setSelectedIndex(value || '')}
-                data={indexList.map((index: string) => ({ value: index, label: index }))}
+                onChange={value => setSelectedIndex(value || '')}
+                data={indexList.map((index: string) => ({
+                  value: index,
+                  label: index
+                }))}
                 required
               />
               <MultiSelect
-                label="Allowed Roles"
-                placeholder="Select roles"
+                label='Allowed Roles'
+                placeholder='Select roles'
                 value={selectedRoles}
                 onChange={setSelectedRoles}
                 data={['user', 'admin']}
               />
               <MultiSelect
-                label="Allowed Users"
-                placeholder="Enter usernames"
+                label='Allowed Users'
+                placeholder='Enter usernames'
                 value={selectedUsers}
                 onChange={setSelectedUsers}
                 data={selectedUsers}
@@ -129,32 +143,35 @@ export default function DocumentsPage() {
               />
               <Button
                 onClick={async () => {
-                  if (!selectedFile || !selectedIndex) return;
-                  
+                  if (!selectedFile || !selectedIndex) return
+
                   try {
-                    setUploadLoading(true);
+                    setUploadLoading(true)
                     await documents.upload(selectedIndex, selectedFile, {
                       roles: selectedRoles,
                       users: selectedUsers
-                    });
+                    })
                     notifications.show({
                       title: 'Success',
                       message: 'Document uploaded successfully',
                       color: 'green'
-                    });
-                    setSelectedFile(null);
-                    setSelectedIndex('');
-                    setSelectedRoles([]);
-                    setSelectedUsers([]);
-                    fetchAllDocuments();
+                    })
+                    setSelectedFile(null)
+                    setSelectedIndex('')
+                    setSelectedRoles([])
+                    setSelectedUsers([])
+                    fetchAllDocuments()
                   } catch (error) {
                     notifications.show({
                       title: 'Error',
-                      message: error instanceof Error ? error.message : 'Failed to upload document',
+                      message:
+                        error instanceof Error
+                          ? error.message
+                          : 'Failed to upload document',
                       color: 'red'
-                    });
+                    })
                   } finally {
-                    setUploadLoading(false);
+                    setUploadLoading(false)
                   }
                 }}
                 loading={uploadLoading}
@@ -167,71 +184,91 @@ export default function DocumentsPage() {
         )}
 
         <Card withBorder p='xl'>
-        {isLoading ? (
-          <Stack align='center' py='xl'>
-            <Loader size='lg' />
-            <Text>Loading documents...</Text>
-          </Stack>
-        ) : allDocuments.length === 0 ? (
-          <Text ta='center' color='dimmed'>
-            No documents found. Upload documents to get started.
-          </Text>
-        ) : (
-          <Table>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Filename</Table.Th>
-                <Table.Th>Index</Table.Th>
-                <Table.Th>Upload Time</Table.Th>
-                <Table.Th>Access</Table.Th>
-                <Table.Th>Actions</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {allDocuments.map(doc => (
-                <Table.Tr key={doc.id}>
-                  <Table.Td>{doc.metadata.filename}</Table.Td>
-                  <Table.Td>
-                    <Badge color='blue'>
-                      {doc.metadata.index_name}
-                    </Badge>
-                  </Table.Td>
-                  <Table.Td>
-                    {new Date(doc.metadata.upload_time).toLocaleString()}
-                  </Table.Td>
-                  <Table.Td>
-                    <Group gap='xs'>
-                      {doc.metadata.allowed_roles.map(role => (
-                        <Badge key={role} size='sm'>
-                          {role}
-                        </Badge>
-                      ))}
-                      {doc.metadata.allowed_users.length > 0 && (
-                        <Badge size='sm' color='violet'>
-                          {doc.metadata.allowed_users.length} users
-                        </Badge>
-                      )}
-                    </Group>
-                  </Table.Td>
-                  <Table.Td>
-                    <Group gap='xs'>
-                      {user?.roles.includes('admin') && (
-                        <ActionIcon
-                          color='red'
-                          variant='subtle'
-                          onClick={() => handleDelete(doc.metadata.index_name, doc.id)}
-                        >
-                          <IconTrash size={16} />
-                        </ActionIcon>
-                      )}
-                    </Group>
-                  </Table.Td>
-                </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
-        )}
-      </Card>
+          {isLoading ? (
+            <Stack align='center' py='xl'>
+              <Loader size='lg' />
+              <Text>Loading documents...</Text>
+            </Stack>
+          ) : allDocuments.length === 0 ? (
+            <Text ta='center' color='dimmed'>
+              No documents found. Upload documents to get started.
+            </Text>
+          ) : (
+            <Stack>
+              <Table>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Filename</Table.Th>
+                    <Table.Th>Index</Table.Th>
+                    <Table.Th>Upload Time</Table.Th>
+                    <Table.Th>Access</Table.Th>
+                    <Table.Th>Actions</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {allDocuments.map(doc => (
+                    <Table.Tr key={doc.id}>
+                      <Table.Td>{doc.metadata.filename}</Table.Td>
+                      <Table.Td>
+                        <Badge color='blue'>{doc.metadata.index_name}</Badge>
+                      </Table.Td>
+                      <Table.Td>
+                        {new Date(doc.metadata.upload_time).toLocaleString()}
+                      </Table.Td>
+                      <Table.Td>
+                        <Group gap='xs'>
+                          {doc.metadata.allowed_roles.map(role => (
+                            <Badge key={role} size='sm'>
+                              {role}
+                            </Badge>
+                          ))}
+                          {doc.metadata.allowed_users.length > 0 && (
+                            <Badge size='sm' color='violet'>
+                              {doc.metadata.allowed_users.length} users
+                            </Badge>
+                          )}
+                        </Group>
+                      </Table.Td>
+                      <Table.Td>
+                        <Group gap='xs'>
+                          {user?.roles.includes('admin') && (
+                            <ActionIcon
+                              color='red'
+                              variant='subtle'
+                              onClick={() =>
+                                handleDelete(doc.metadata.index_name, doc.id)
+                              }
+                              title='Delete document'
+                            >
+                              <IconTrash size={16} />
+                            </ActionIcon>
+                          )}
+                        </Group>
+                      </Table.Td>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+              <Group justify='center' mt='md'>
+                <Button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1 || isLoading}
+                >
+                  Previous
+                </Button>
+                <Text>
+                  Page {currentPage} of {totalPages}
+                </Text>
+                <Button
+                  onClick={() => setCurrentPage(p => p + 1)}
+                  disabled={currentPage >= totalPages || isLoading}
+                >
+                  Next
+                </Button>
+              </Group>
+            </Stack>
+          )}
+        </Card>
       </Stack>
     </Container>
   )

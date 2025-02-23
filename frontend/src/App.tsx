@@ -22,7 +22,16 @@ import RFPPage from './pages/RFPPage'
 import BrochurePage from './pages/BrochurePage'
 import LoginPage from './pages/LoginPage'
 
-const queryClient = new QueryClient()
+const queryClient = new QueryClient({
+  defaultOptions: {
+    mutations: {
+      retry: false,
+      onError: error => {
+        console.error('Mutation error:', error)
+      }
+    }
+  }
+})
 
 function App () {
   return (
@@ -61,28 +70,37 @@ function App () {
         <ModalsProvider>
           <Notifications />
           <AuthProvider>
-          <Router>
-            <Routes>
-              <Route path="/login" element={<LoginPage />} />
-              <Route element={<Layout />}>
-                <Route path="/" element={<Navigate to="/chat" replace />} />
-                <Route path="chat" element={<ChatPage />} />
-                <Route path="query" element={<QueryPage />} />
-                <Route path="rfp" element={<RFPPage />} />
-                <Route path="brochure" element={<BrochurePage />} />
-                <Route element={<AdminRoute />}>
-                  <Route path="documents" element={<DocumentsPage />} />
-                  <Route index element={<Navigate to="/indexes" replace />} />
-                  <Route path="indexes" element={<IndexesPage />} />
-                  <Route path="indexes/:indexName/documents" element={<DocumentsPage />} />
+            <Router>
+              <Routes>
+                <Route path='/login' element={<LoginPage />} />
+                <Route element={<Layout />}>
+                  <Route path='/' element={<Navigate to='/chat' replace />} />
+                  <Route path='chat' element={<ChatPage />} />
+                  <Route path='query' element={<QueryPage />} />
+                  <Route path='rfp' element={<RFPPage />} />
+                  <Route path='brochure' element={<BrochurePage />} />
+                  <Route element={<AdminRoute />}>
+                    <Route path='documents' element={<DocumentsPage />} />
+                    <Route index element={<Navigate to='/indexes' replace />} />
+                    <Route path='indexes' element={<IndexesPage />} />
+                    <Route
+                      path='indexes/:indexName/documents'
+                      element={<DocumentsPage />}
+                    />
+                  </Route>
+                  <Route element={<ProtectedRoute />}>
+                    <Route
+                      path='indexes/:indexName/query'
+                      element={<QueryPage />}
+                    />
+                    <Route
+                      path='indexes/:indexName/chat'
+                      element={<ChatPage />}
+                    />
+                  </Route>
                 </Route>
-                <Route element={<ProtectedRoute />}>
-                  <Route path="indexes/:indexName/query" element={<QueryPage />} />
-                  <Route path="indexes/:indexName/chat" element={<ChatPage />} />
-                </Route>
-              </Route>
-            </Routes>
-          </Router>
+              </Routes>
+            </Router>
           </AuthProvider>
         </ModalsProvider>
       </MantineProvider>

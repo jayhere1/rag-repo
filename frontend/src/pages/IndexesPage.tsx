@@ -17,7 +17,7 @@ import { notifications } from '@mantine/notifications'
 import { useAuth } from '../contexts/AuthContext'
 import { modals } from '@mantine/modals'
 
-export default function IndexesPage() {
+export default function IndexesPage () {
   const [newIndexName, setNewIndexName] = useState('')
   const [newIndexDescription, setNewIndexDescription] = useState('')
   const navigate = useNavigate()
@@ -73,7 +73,8 @@ export default function IndexesPage() {
     onError: error => {
       notifications.show({
         title: 'Error',
-        message: error instanceof Error ? error.message : 'Failed to delete index',
+        message:
+          error instanceof Error ? error.message : 'Failed to delete index',
         color: 'red'
       })
     }
@@ -83,8 +84,9 @@ export default function IndexesPage() {
     modals.openConfirmModal({
       title: 'Delete Index',
       children: (
-        <Text size="sm">
-          Are you sure you want to delete the index "{indexName}"? This action cannot be undone.
+        <Text size='sm'>
+          Are you sure you want to delete the index "{indexName}"? This action
+          cannot be undone.
         </Text>
       ),
       labels: { confirm: 'Delete', cancel: 'Cancel' },
@@ -99,7 +101,9 @@ export default function IndexesPage() {
 
   return (
     <Container size='lg'>
-      <Title order={2} mb='xl'>Index Management</Title>
+      <Title order={2} mb='xl'>
+        Index Management
+      </Title>
 
       <Tabs defaultValue='manage'>
         <Tabs.List>
@@ -111,7 +115,7 @@ export default function IndexesPage() {
 
         <Tabs.Panel value='manage' pt='xl'>
           <Card withBorder p='xl'>
-            {indexList.map(indexName => (
+            {indexList.map((indexName: string) => (
               <Card
                 key={indexName}
                 shadow='sm'
@@ -131,13 +135,13 @@ export default function IndexesPage() {
                       View Documents
                     </Button>
                     {user?.roles.includes('admin') && (
-                      <Button 
-                        variant='light' 
-                        color='red' 
+                      <Button
+                        variant='light'
+                        color='red'
                         size='sm'
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteIndex(indexName);
+                        onClick={e => {
+                          e.stopPropagation()
+                          handleDeleteIndex(indexName)
                         }}
                       >
                         Delete

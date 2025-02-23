@@ -76,6 +76,12 @@ export interface DocumentAccess {
   users: string[];
 }
 
+export interface Chunk {
+  id: string;
+  text: string;
+  index: number;
+}
+
 export interface DocumentMetadata {
   owner: string;
   allowed_roles: string[];
@@ -84,6 +90,9 @@ export interface DocumentMetadata {
   upload_time: string;
   index_name: string;
   size: number;
+  chunk_index: number;
+  total_chunks: number;
+  chunks?: Chunk[];
 }
 
 export interface Document {
@@ -103,6 +112,7 @@ export interface QueryResponse {
   sources: Array<{
     text: string;
     metadata: Record<string, any>;
+    relevance?: number;
   }>;
 }
 
@@ -119,7 +129,7 @@ export const documents = {
     const response = await api.get(`/documents/${indexName}`, {
       params: { page, limit },
     });
-    
+
     // Add index_name to each document's metadata
     // Ensure we preserve all original metadata fields while adding index_name
     const documents = response.data.documents.map((doc: Document) => {
@@ -130,11 +140,11 @@ export const documents = {
         metadata: {
           ...metadata,
           index_name: indexName,
-          size: metadata.size || 0 // Ensure size is always present
-        }
+          size: metadata.size || 0, // Ensure size is always present
+        },
       };
     });
-    
+
     return { documents };
   },
 
@@ -150,20 +160,20 @@ export const documents = {
     console.log("Uploading document:", {
       file,
       indexName,
-      access
+      access,
     });
 
     // Send access data as form field
     const accessData = {
       access: {
         roles: access.roles,
-        users: access.users
-      }
+        users: access.users,
+      },
     };
-    
+
     // Log the stringified access data for debugging
     console.log("Access data to be sent:", JSON.stringify(accessData, null, 2));
-    
+
     formData.append("access", JSON.stringify(accessData));
 
     // Log form data entries
@@ -185,6 +195,34 @@ export const documents = {
 
   query: async (request: QueryRequest): Promise<QueryResponse> => {
     const response = await api.post("/documents/query", request);
-    return response.data;
+    console.log("Full API response:", {
+      status: response.status,
+      headers: response.headers,
+      data: response.data,
+    });
+
+    // Ensure we're getting the expected data structure
+    const data = response.data;
+    if (!data || typeof data !== "object") {
+      throw new Error("Invalid response format: expected object");
+    }
+
+    if (!("answer" in data) || !("sources" in data)) {
+      throw new Error("Invalid response format: missing required fields");
+    }
+
+    if (!Array.isArray(data.sources)) {
+      throw new Error("Invalid response format: sources must be an array");
+    }
+
+    return {
+      answer: String(data.answer),
+      sources: data.sources.map(
+        (source: { text?: string; metadata?: Record<string, any> }) => ({
+          text: String(source.text || ""),
+          metadata: source.metadata || {},
+        })
+      ),
+    };
   },
 };
