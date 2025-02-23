@@ -9,7 +9,7 @@ import {
   Stack,
   Text
 } from '@mantine/core'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { notifications } from '@mantine/notifications'
 
@@ -19,6 +19,7 @@ export default function LoginPage () {
   const [isLoading, setIsLoading] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -31,7 +32,9 @@ export default function LoginPage () {
         message: 'Logged in successfully',
         color: 'green'
       })
-      navigate('/indexes')
+      // Navigate to the protected page user was trying to access, or default to /indexes
+      const destination = location.state?.from?.pathname || '/indexes'
+      navigate(destination)
     } catch (error) {
       notifications.show({
         title: 'Error',
@@ -46,15 +49,17 @@ export default function LoginPage () {
   return (
     <Container size={420} my={40}>
       <Title
-        align='center'
-        sx={theme => ({
-          fontFamily: `Greycliff CF, ${theme.fontFamily}`,
-          fontWeight: 900
+        ta='center'
+        styles={(theme: { fontFamily: string }) => ({
+          root: {
+            fontFamily: `Greycliff CF, ${theme.fontFamily}`,
+            fontWeight: 900
+          }
         })}
       >
         Welcome back!
       </Title>
-      <Text color='dimmed' size='sm' align='center' mt={5}>
+      <Text color='dimmed' size='sm' ta='center' mt={5}>
         Use your credentials to access the RAG application
       </Text>
 

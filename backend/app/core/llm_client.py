@@ -44,11 +44,30 @@ class LLMClient:
     def get_embeddings(self, texts: List[str]) -> List[List[float]]:
         """Get embeddings for a list of texts."""
         try:
-            response = self.embedding_client.embeddings.create(
-                model=self.embedding_deployment, input=texts
-            )
-            return [item.embedding for item in response.data]
+            print(f"Getting embeddings for {len(texts)} texts")
+            print(f"Using model: {self.embedding_deployment}")
+            
+            # Validate input
+            if not texts:
+                raise ValueError("No texts provided for embedding")
+            
+            # Ensure texts are not empty
+            texts = [text.strip() for text in texts]
+            if not all(texts):
+                raise ValueError("One or more texts are empty")
+            
+            try:
+                response = self.embedding_client.embeddings.create(
+                    model=self.embedding_deployment, input=texts
+                )
+                embeddings = [item.embedding for item in response.data]
+                print(f"Successfully generated {len(embeddings)} embeddings")
+                return embeddings
+            except Exception as e:
+                print(f"Error from Azure OpenAI: {type(e).__name__}: {str(e)}")
+                raise Exception(f"Azure OpenAI API error: {str(e)}")
         except Exception as e:
+            print(f"Error in get_embeddings: {type(e).__name__}: {str(e)}")
             raise Exception(f"Failed to get embeddings: {str(e)}")
 
     def get_completion(
