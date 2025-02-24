@@ -31,7 +31,7 @@ export interface User {
 
 export const auth = {
   listUsers: async (): Promise<string[]> => {
-    const response = await api.get("/api/auth/users");
+    const response = await api.get("/auth/users");
     return response.data;
   },
 
@@ -44,8 +44,8 @@ export const auth = {
     formData.append("password", credentials.password);
 
     try {
-      console.log("Sending login request to:", `${API_URL}/api/auth/token`);
-      const response = await api.post("/api/auth/token", formData.toString(), {
+      console.log("Sending login request to:", `${API_URL}/auth/token`);
+      const response = await api.post("/auth/token", formData.toString(), {
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
         },
@@ -69,7 +69,7 @@ export const auth = {
   getUser: async (): Promise<User> => {
     try {
       console.log("Fetching user data");
-      const response = await api.get("/api/auth/me");
+      const response = await api.get("/auth/me");
       console.log("User data response:", response.data);
       return response.data;
     } catch (error) {
@@ -94,17 +94,17 @@ export interface Index {
 
 export const indexes = {
   list: async () => {
-    const response = await api.get("/api/indexes");
+    const response = await api.get("/indexes");
     return response.data;
   },
 
   create: async (name: string, description?: string) => {
-    const response = await api.post(`/api/indexes/${name}`, { description });
+    const response = await api.post(`/indexes/${name}`, { description });
     return response.data;
   },
 
   delete: async (name: string) => {
-    const response = await api.delete(`/api/indexes/${name}`);
+    const response = await api.delete(`/indexes/${name}`);
     return response.data;
   },
 };
@@ -164,7 +164,7 @@ export const documents = {
     page = 1,
     limit = 10
   ): Promise<ListDocumentsResponse> => {
-    const response = await api.get(`/api/documents/${indexName}`, {
+    const response = await api.get(`/documents/${indexName}`, {
       params: { page, limit },
     });
 
@@ -187,7 +187,7 @@ export const documents = {
   },
 
   delete: async (indexName: string, documentId: string): Promise<void> => {
-    await api.delete(`/api/documents/${indexName}/${documentId}`);
+    await api.delete(`/documents/${indexName}/${documentId}`);
   },
 
   upload: async (indexName: string, file: File, access: DocumentAccess) => {
@@ -220,7 +220,7 @@ export const documents = {
     }
 
     const response = await api.post(
-      `/api/documents/${indexName}/upload`,
+      `/documents/${indexName}/upload`,
       formData,
       {
         headers: {
@@ -232,7 +232,7 @@ export const documents = {
   },
 
   query: async (request: QueryRequest): Promise<QueryResponse> => {
-    const response = await api.post("/api/documents/query", request);
+    const response = await api.post("/documents/query", request);
     console.log("Full API response:", {
       status: response.status,
       headers: response.headers,
