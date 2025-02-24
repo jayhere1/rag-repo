@@ -44,7 +44,6 @@ fake_users_db = {
         "roles": [],
         "access_categories": [
             DOCUMENT_CATEGORIES["HR_DOCS"],
-            DOCUMENT_CATEGORIES["SAFETY"],
         ],
         "disabled": False,
     },
@@ -54,8 +53,6 @@ fake_users_db = {
         "roles": [],
         "access_categories": [
             DOCUMENT_CATEGORIES["OPERATIONS"],
-            DOCUMENT_CATEGORIES["SAFETY"],
-            DOCUMENT_CATEGORIES["TECHNICAL"],
         ],
         "disabled": False,
     },
@@ -65,7 +62,6 @@ fake_users_db = {
         "roles": [],
         "access_categories": [
             DOCUMENT_CATEGORIES["SAFETY"],
-            DOCUMENT_CATEGORIES["OPERATIONS"],
         ],
         "disabled": False,
     },
@@ -75,8 +71,6 @@ fake_users_db = {
         "roles": [],
         "access_categories": [
             DOCUMENT_CATEGORIES["TECHNICAL"],
-            DOCUMENT_CATEGORIES["SAFETY"],
-            DOCUMENT_CATEGORIES["OPERATIONS"],
         ],
         "disabled": False,
     },
