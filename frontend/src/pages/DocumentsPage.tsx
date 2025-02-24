@@ -29,7 +29,6 @@ export default function DocumentsPage () {
   const [selectedIndex, setSelectedIndex] = useState<string>('')
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
-  const [availableUsers, setAvailableUsers] = useState<string[]>([])
   const [uploadLoading, setUploadLoading] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)

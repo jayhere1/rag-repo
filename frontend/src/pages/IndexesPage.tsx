@@ -12,7 +12,6 @@ import {
   Collapse,
   List
 } from '@mantine/core'
-import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { indexes, documents, Document } from '../lib/api'
 import { notifications } from '@mantine/notifications'
@@ -22,7 +21,6 @@ import { modals } from '@mantine/modals'
 export default function IndexesPage () {
   const [newIndexName, setNewIndexName] = useState('')
   const [newIndexDescription, setNewIndexDescription] = useState('')
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { user } = useAuth()
 

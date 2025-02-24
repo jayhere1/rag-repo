@@ -19,8 +19,6 @@ import { useAuth } from '../contexts/AuthContext'
 import { useChat } from '../contexts/ChatContext'
 import { IconRobot, IconUser } from '@tabler/icons-react'
 import { useParams } from 'react-router-dom'
-import { documents, QueryResponse } from '../lib/api'
-import { notifications } from '@mantine/notifications'
 
 export default function QueryPage (): ReactElement {
   const { indexName } = useParams()

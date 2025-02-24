@@ -20,8 +20,7 @@ import {
 import { useAuth } from '../contexts/AuthContext'
 import { useChat } from '../contexts/ChatContext'
 import { useParams } from 'react-router-dom'
-import { documents } from '../lib/api'
-import { notifications } from '@mantine/notifications'
+
 import {
   IconSend,
   IconMicrophone,
@@ -35,25 +34,6 @@ import {
   IconDots,
   IconPencil
 } from '@tabler/icons-react'
-
-interface ChatMessage {
-  type: 'user' | 'assistant'
-  content: string
-  timestamp: Date
-  sources?: Array<{
-    text: string
-    metadata: Record<string, any>
-    relevance?: number
-  }>
-}
-
-interface ChatSession {
-  id: string
-  name: string
-  messages: ChatMessage[]
-  createdAt: Date
-  updatedAt: Date
-}
 
 export default function ChatPage (): ReactElement {
   const { indexName } = useParams()
