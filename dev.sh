@@ -1,44 +1,20 @@
 #!/bin/bash
 
-# Setup and install backend requirements
-echo "Setting up backend environment..."
-cd backend
+echo "Starting development environment..."
 
-echo "Installing backend requirements..."
-pip install -r requirements.txt
-cd ..
-
-# Install frontend dependencies
-echo "Installing frontend dependencies..."
-cd frontend
-npm install
-cd ..
-
-# Start services in the background
-echo "Starting Weaviate..."
-docker-compose -f docker-compose.dev.yml up -d
-
-echo "Starting backend server..."
-cd backend
-source venv/bin/activate
-python -m uvicorn app.main:app --reload --port 8001 &
-BACKEND_PID=$!
-
-echo "Starting frontend dev server..."
-cd ../frontend
-npm run dev &
-FRONTEND_PID=$!
+# Start all services
+echo "Starting services..."
+docker-compose -f docker-compose.dev.yml up --build -d
 
 # Handle cleanup on script termination
 cleanup() {
     echo "Shutting down services..."
-    kill $BACKEND_PID
-    kill $FRONTEND_PID
     docker-compose -f docker-compose.dev.yml down
     exit 0
 }
 
 trap cleanup SIGINT SIGTERM
 
-# Keep script running
-wait
+# Show logs from all services
+echo "Showing logs from all services..."
+docker-compose -f docker-compose.dev.yml logs -f

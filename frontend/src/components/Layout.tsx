@@ -554,7 +554,7 @@ export default function Layout () {
                 <Text>Ask a question</Text>
               </Group>
             </Link>
-            {user?.roles.includes('admin') && (
+            {user?.roles?.includes('admin') && (
               <>
                 <Link
                   to='/documents'
@@ -635,11 +635,21 @@ export default function Layout () {
             label='Username'
             value={username}
             onChange={e => setUsername(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                handleLogin()
+              }
+            }}
           />
           <PasswordInput
             label='Password'
             value={password}
             onChange={e => setPassword(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                handleLogin()
+              }
+            }}
           />
           <Button onClick={handleLogin}>Login</Button>
         </Stack>

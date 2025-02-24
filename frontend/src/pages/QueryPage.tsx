@@ -185,7 +185,9 @@ export default function QueryPage (): ReactElement {
                     <Text fw={500} mb='sm'>
                       Answer
                     </Text>
-                    <Text>{response.answer}</Text>
+                    <Text>
+                      {response.answer.split(/\n\s*Citation\s*\n/)[0].trim()}
+                    </Text>
                   </Box>
                   {response.sources.length > 0 && (
                     <Box>

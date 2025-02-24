@@ -24,8 +24,8 @@ llm_client = LLMClient()
 
 
 class DocumentAccess(BaseModel):
-    roles: List[str] = []
-    users: List[str] = []
+    categories: List[str] = []  # Document categories (hr_docs, operations, etc.)
+    users: List[str] = []  # Specific users who can access this document
 
 
 class QueryRequest(BaseModel):
@@ -48,7 +48,7 @@ class DocumentUploadRequest(BaseModel):
                 and isinstance(data["access"], dict)
             ):
                 # If the data has nested access structure, use the inner access object
-                if "roles" in data["access"] and "users" in data["access"]:
+                if "categories" in data["access"] and "users" in data["access"]:
                     return cls(access=DocumentAccess(**data["access"]))
             raise ValueError("Invalid access data structure")
         except json.JSONDecodeError as e:
@@ -59,7 +59,7 @@ class DocumentUploadRequest(BaseModel):
 
 class DocumentMetadata(BaseModel):
     owner: str
-    allowed_roles: List[str]
+    allowed_categories: List[str]
     allowed_users: List[str]
     filename: str
     upload_time: str
@@ -107,44 +107,38 @@ async def list_documents(
                 if not isinstance(metadata, dict):
                     metadata = {}
 
-                # Check access permissions with exact string matching
-                allowed_roles = metadata.get("allowed_roles", [])
+                # Check access permissions
+                allowed_categories = metadata.get("allowed_categories", [])
                 allowed_users = metadata.get("allowed_users", [])
 
                 print("Access check details:")
                 print(f"- Document metadata: {json.dumps(metadata, indent=2)}")
-                print(f"- User roles (exact): {current_user.roles}")
-                print(f"- Username (exact): {current_user.username}")
+                print(f"- User categories: {current_user.access_categories}")
+                print(f"- Username: {current_user.username}")
 
-                # Check access with case-insensitive comparison
+                # Admin has access to all documents
                 is_admin = any(role.lower() == "admin" for role in current_user.roles)
 
-                # Check if user role is in allowed roles (case-insensitive)
-                user_roles_lower = set(role.lower() for role in current_user.roles)
-                allowed_roles_lower = set(role.lower() for role in allowed_roles)
-                print(f"- User roles (lower): {sorted(list(user_roles_lower))}")
-                print(f"- Allowed roles (lower): {sorted(list(allowed_roles_lower))}")
-
-                # Check for any intersection between user roles and allowed roles
-                has_role = bool(user_roles_lower & allowed_roles_lower)
+                # Check if user has access to any of the document's categories
+                has_category_access = any(
+                    cat in current_user.access_categories for cat in allowed_categories
+                )
 
                 # Check if username matches
                 has_user_access = current_user.username in allowed_users
 
                 print("Access evaluation:")
                 print(f"- Admin access: {is_admin}")
-                print(f"- Role match: {has_role}")
+                print(f"- Category match: {has_category_access}")
                 print(f"- User match: {has_user_access}")
 
-                has_access = is_admin or has_role or has_user_access
+                has_access = is_admin or has_category_access or has_user_access
                 print(f"- Final decision: {has_access}")
 
                 if has_access:
                     print("Access granted - document included")
                 else:
                     print("Access denied - document filtered out")
-
-                if not has_access:
                     continue
 
                 # Create document with properly structured metadata
@@ -153,7 +147,7 @@ async def list_documents(
                     "text": doc.get("text", ""),
                     "metadata": {
                         "owner": metadata.get("owner", ""),
-                        "allowed_roles": metadata.get("allowed_roles", []),
+                        "allowed_categories": metadata.get("allowed_categories", []),
                         "allowed_users": metadata.get("allowed_users", []),
                         "filename": metadata.get("filename", "unknown"),
                         "upload_time": metadata.get("upload_time", ""),
@@ -281,7 +275,7 @@ async def upload_document(
     filename = file.filename or "unknown"
     metadata = {
         "owner": current_user.username,
-        "allowed_roles": access_request.access.roles,
+        "allowed_categories": access_request.access.categories,
         "allowed_users": access_request.access.users,
         "filename": filename,
         "upload_time": datetime.utcnow().isoformat(),
@@ -357,40 +351,35 @@ async def query_documents(
                     # Print raw metadata for debugging
                     print("Raw metadata:", json.dumps(metadata, indent=2))
 
-                    # Check access permissions with detailed logging
-                    allowed_roles = metadata.get("allowed_roles", [])
+                    # Check access permissions
+                    allowed_categories = metadata.get("allowed_categories", [])
                     allowed_users = metadata.get("allowed_users", [])
 
                     print("Access check details:")
                     print(f"- Document metadata: {json.dumps(metadata, indent=2)}")
-                    print(f"- User roles (exact): {current_user.roles}")
-                    print(f"- Username (exact): {current_user.username}")
+                    print(f"- User categories: {current_user.access_categories}")
+                    print(f"- Username: {current_user.username}")
 
-                    # Check access with case-insensitive comparison
+                    # Admin has access to all documents
                     is_admin = any(
                         role.lower() == "admin" for role in current_user.roles
                     )
 
-                    # Check if user role is in allowed roles (case-insensitive)
-                    user_roles_lower = set(role.lower() for role in current_user.roles)
-                    allowed_roles_lower = set(role.lower() for role in allowed_roles)
-                    print(f"- User roles (lower): {sorted(list(user_roles_lower))}")
-                    print(
-                        f"- Allowed roles (lower): {sorted(list(allowed_roles_lower))}"
+                    # Check if user has access to any of the document's categories
+                    has_category_access = any(
+                        cat in current_user.access_categories
+                        for cat in allowed_categories
                     )
-
-                    # Check for any intersection between user roles and allowed roles
-                    has_role = bool(user_roles_lower & allowed_roles_lower)
 
                     # Check if username matches
                     has_user_access = current_user.username in allowed_users
 
                     print("Access evaluation:")
                     print(f"- Admin access: {is_admin}")
-                    print(f"- Role match: {has_role}")
+                    print(f"- Category match: {has_category_access}")
                     print(f"- User match: {has_user_access}")
 
-                    has_access = is_admin or has_role or has_user_access
+                    has_access = is_admin or has_category_access or has_user_access
                     print(f"- Final decision: {has_access}")
 
                     if has_access:
@@ -442,7 +431,64 @@ async def query_documents(
         answer = llm_client.get_completion(query_request.query, sources)
         print("Answer generated successfully")
 
-        return QueryResponse(answer=answer, sources=sources)
+        # Extract citation numbers from the answer
+        import re
+
+        # Map superscript numbers to regular numbers
+        superscript_map = {
+            "¹": 1,
+            "²": 2,
+            "³": 3,
+            "⁴": 4,
+            "⁵": 5,
+            "⁶": 6,
+            "⁷": 7,
+            "⁸": 8,
+            "⁹": 9,
+        }
+
+        # Find all superscript numbers and convert them to regular numbers
+        citations = set()
+        for match in re.findall(r"([¹²³⁴⁵⁶⁷⁸⁹])", answer):
+            if match in superscript_map:
+                citations.add(superscript_map[match])
+
+        # Filter out low relevance sources first
+        RELEVANCE_THRESHOLD = 0.85  # Higher threshold for more relevant sources
+        relevant_sources = [
+            s for s in sources if s.get("relevance", 0) >= RELEVANCE_THRESHOLD
+        ]
+
+        # Group by filename and keep only the most relevant chunk for each file
+        unique_sources = {}
+        for source in relevant_sources:
+            filename = source["metadata"].get("filename")
+            relevance = source.get("relevance", 0)
+
+            if filename in unique_sources:
+                if relevance > unique_sources[filename]["relevance"]:
+                    unique_sources[filename] = source
+            else:
+                unique_sources[filename] = source
+
+        # Convert to list and sort by relevance
+        all_sources = list(unique_sources.values())
+        all_sources.sort(key=lambda x: x.get("relevance", 0), reverse=True)
+
+        # Only include sources that were actually cited in the answer
+        cited_sources = []
+        for idx, source in enumerate(all_sources, 1):
+            if idx in citations:
+                cited_sources.append(source)
+
+        # If no citations were found but we have highly relevant sources, include the most relevant one
+        if not cited_sources and all_sources:
+            # Only include the fallback source if it's highly relevant
+            most_relevant = all_sources[0]
+            if most_relevant.get("relevance", 0) >= RELEVANCE_THRESHOLD:
+                cited_sources = [most_relevant]
+
+        return QueryResponse(answer=answer, sources=cited_sources)
     except Exception as e:
         print(f"Error in query_documents: {type(e).__name__}: {str(e)}")
         print(

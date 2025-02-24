@@ -1,5 +1,34 @@
 version: '3.4'
 services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:8001
+    command: npm run dev -- --host
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./backend:/app
+    env_file:
+      - backend/.env
+    environment:
+      - WEAVIATE_URL=http://weaviate:8080
+    command: python -m uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+
   weaviate:
     image: semitechnologies/weaviate:1.24.1
     ports:
@@ -7,18 +36,13 @@ services:
     environment:
       QUERY_DEFAULTS_LIMIT: 25
       AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
-      DEFAULT_VECTORIZER_MODULE: text2vec-transformers
-      ENABLE_MODULES: text2vec-transformers
-      TRANSFORMERS_INFERENCE_API: http://t2v-transformers:8080
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+      DEFAULT_VECTORIZER_MODULE: 'none'
+      CLUSTER_HOSTNAME: 'node1'
     volumes:
       - weaviate_data:/var/lib/weaviate
-    depends_on:
-      - t2v-transformers
+    restart: unless-stopped
 
-  t2v-transformers:
-    image: semitechnologies/transformers-inference:sentence-transformers-multi-qa-MiniLM-L6-cos-v1
-    environment:
-      ENABLE_CUDA: 0
 
 volumes:
   weaviate_data:

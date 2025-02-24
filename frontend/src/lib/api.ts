@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "/api";
+const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -26,26 +26,64 @@ export interface LoginCredentials {
 export interface User {
   username: string;
   roles: string[];
+  access_categories: string[];
 }
 
 export const auth = {
+  listUsers: async (): Promise<string[]> => {
+    const response = await api.get("/api/auth/users");
+    return response.data;
+  },
+
   login: async (credentials: LoginCredentials) => {
+    console.log("Attempting login with username:", credentials.username);
+
     // Create URLSearchParams for proper x-www-form-urlencoded format
     const formData = new URLSearchParams();
     formData.append("username", credentials.username);
     formData.append("password", credentials.password);
 
-    const response = await api.post("/auth/token", formData.toString(), {
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-    });
-    return response.data;
+    try {
+      console.log("Sending login request to:", `${API_URL}/api/auth/token`);
+      const response = await api.post("/api/auth/token", formData.toString(), {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      });
+      console.log("Login response:", response.data);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        console.error("Login request failed:", {
+          status: error.response?.status,
+          data: error.response?.data,
+          headers: error.response?.headers,
+        });
+      } else {
+        console.error("Login error:", error);
+      }
+      throw error;
+    }
   },
 
   getUser: async (): Promise<User> => {
-    const response = await api.get("/auth/me");
-    return response.data;
+    try {
+      console.log("Fetching user data");
+      const response = await api.get("/api/auth/me");
+      console.log("User data response:", response.data);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        console.error("Get user request failed:", {
+          status: error.response?.status,
+          data: error.response?.data,
+          headers: error.response?.headers,
+        });
+      } else {
+        console.error("Get user error:", error);
+      }
+      throw error;
+    }
   },
 };
 
@@ -56,23 +94,23 @@ export interface Index {
 
 export const indexes = {
   list: async () => {
-    const response = await api.get("/indexes");
+    const response = await api.get("/api/indexes");
     return response.data;
   },
 
   create: async (name: string, description?: string) => {
-    const response = await api.post(`/indexes/${name}`, { description });
+    const response = await api.post(`/api/indexes/${name}`, { description });
     return response.data;
   },
 
   delete: async (name: string) => {
-    const response = await api.delete(`/indexes/${name}`);
+    const response = await api.delete(`/api/indexes/${name}`);
     return response.data;
   },
 };
 
 export interface DocumentAccess {
-  roles: string[];
+  categories: string[];
   users: string[];
 }
 
@@ -84,7 +122,7 @@ export interface Chunk {
 
 export interface DocumentMetadata {
   owner: string;
-  allowed_roles: string[];
+  allowed_categories: string[];
   allowed_users: string[];
   filename: string;
   upload_time: string;
@@ -126,7 +164,7 @@ export const documents = {
     page = 1,
     limit = 10
   ): Promise<ListDocumentsResponse> => {
-    const response = await api.get(`/documents/${indexName}`, {
+    const response = await api.get(`/api/documents/${indexName}`, {
       params: { page, limit },
     });
 
@@ -149,7 +187,7 @@ export const documents = {
   },
 
   delete: async (indexName: string, documentId: string): Promise<void> => {
-    await api.delete(`/documents/${indexName}/${documentId}`);
+    await api.delete(`/api/documents/${indexName}/${documentId}`);
   },
 
   upload: async (indexName: string, file: File, access: DocumentAccess) => {
@@ -166,7 +204,7 @@ export const documents = {
     // Send access data as form field
     const accessData = {
       access: {
-        roles: access.roles,
+        categories: access.categories,
         users: access.users,
       },
     };
@@ -182,7 +220,7 @@ export const documents = {
     }
 
     const response = await api.post(
-      `/documents/${indexName}/upload`,
+      `/api/documents/${indexName}/upload`,
       formData,
       {
         headers: {
@@ -194,7 +232,7 @@ export const documents = {
   },
 
   query: async (request: QueryRequest): Promise<QueryResponse> => {
-    const response = await api.post("/documents/query", request);
+    const response = await api.post("/api/documents/query", request);
     console.log("Full API response:", {
       status: response.status,
       headers: response.headers,

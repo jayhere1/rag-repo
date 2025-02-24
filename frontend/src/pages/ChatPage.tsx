@@ -62,6 +62,10 @@ export default function ChatPage (): ReactElement {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
+  const [selectedSource, setSelectedSource] = useState<{
+    text: string
+    metadata: Record<string, any>
+  } | null>(null)
 
   const [currentSessionId, setCurrentSessionId] = useState<string>(() => {
     // Create a new session if none exists
@@ -306,7 +310,9 @@ export default function ChatPage (): ReactElement {
                   <Text fw={500} mb='sm'>
                     Answer
                   </Text>
-                  <Text>{msg.content}</Text>
+                  <Text>
+                    {msg.content.split(/\n\s*Citation\s*\n/)[0].trim()}
+                  </Text>
                 </Box>
                 {msg.type === 'assistant' &&
                   msg.sources &&
@@ -316,11 +322,21 @@ export default function ChatPage (): ReactElement {
                         Citation
                       </Text>
                       {msg.sources.map((source, idx) => (
-                        <Group key={idx} gap='xs'>
+                        <Group
+                          key={idx}
+                          gap='xs'
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => {
+                            setSelectedSource(source)
+                          }}
+                        >
                           <Text size='sm' c='blue'>
                             {idx + 1}.
                           </Text>
-                          <Text size='sm'>
+                          <Text
+                            size='sm'
+                            style={{ textDecoration: 'underline' }}
+                          >
                             {source.metadata?.filename || 'Unknown source'}
                           </Text>
                           {source.metadata?.page && (
@@ -508,6 +524,25 @@ export default function ChatPage (): ReactElement {
               </Card>
             ))}
         </Stack>
+      </Drawer>
+
+      {/* Document Preview Drawer */}
+      <Drawer
+        opened={selectedSource !== null}
+        onClose={() => setSelectedSource(null)}
+        position='right'
+        size='lg'
+        title={
+          <Title order={3}>
+            {selectedSource?.metadata?.filename || 'Document Preview'}
+          </Title>
+        }
+      >
+        {selectedSource && (
+          <Box p='md'>
+            <Text>{selectedSource.text}</Text>
+          </Box>
+        )}
       </Drawer>
     </Container>
   )

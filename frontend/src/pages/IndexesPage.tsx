@@ -8,11 +8,13 @@ import {
   TextInput,
   Stack,
   Text,
-  Tabs
+  Tabs,
+  Collapse,
+  List
 } from '@mantine/core'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { indexes } from '../lib/api'
+import { indexes, documents, Document } from '../lib/api'
 import { notifications } from '@mantine/notifications'
 import { useAuth } from '../contexts/AuthContext'
 import { modals } from '@mantine/modals'
@@ -95,8 +97,22 @@ export default function IndexesPage () {
     })
   }
 
+  const [expandedIndex, setExpandedIndex] = useState<string | null>(null)
+
+  const {
+    data: documentsList = { documents: [] },
+    isLoading: isLoadingDocuments
+  } = useQuery({
+    queryKey: ['documents', expandedIndex],
+    queryFn: async () => {
+      if (!expandedIndex) return { documents: [] }
+      return documents.list(expandedIndex)
+    },
+    enabled: !!expandedIndex
+  })
+
   const handleIndexClick = (indexName: string) => {
-    navigate(`/indexes/${indexName}/documents`)
+    setExpandedIndex(expandedIndex === indexName ? null : indexName)
   }
 
   return (
@@ -108,7 +124,7 @@ export default function IndexesPage () {
       <Tabs defaultValue='manage'>
         <Tabs.List>
           <Tabs.Tab value='manage'>Manage Indexes</Tabs.Tab>
-          {user?.roles.includes('admin') && (
+          {user?.roles?.includes('admin') && (
             <Tabs.Tab value='create'>Create New Index</Tabs.Tab>
           )}
         </Tabs.List>
@@ -116,40 +132,67 @@ export default function IndexesPage () {
         <Tabs.Panel value='manage' pt='xl'>
           <Card withBorder p='xl'>
             {indexList.map((indexName: string) => (
-              <Card
-                key={indexName}
-                shadow='sm'
-                p='lg'
-                radius='md'
-                withBorder
-                mb='md'
-                style={{ cursor: 'pointer' }}
-                onClick={() => handleIndexClick(indexName)}
-              >
-                <Group justify='apart'>
-                  <Text size='lg' fw={500}>
-                    {indexName}
-                  </Text>
-                  <Group>
-                    <Button variant='light' size='sm'>
-                      View Documents
-                    </Button>
-                    {user?.roles.includes('admin') && (
+              <div key={indexName}>
+                <Card
+                  shadow='sm'
+                  p='lg'
+                  radius='md'
+                  withBorder
+                  mb='md'
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleIndexClick(indexName)}
+                >
+                  <Group justify='apart'>
+                    <Text size='lg' fw={500}>
+                      {indexName}
+                    </Text>
+                    <Group>
                       <Button
                         variant='light'
-                        color='red'
                         size='sm'
                         onClick={e => {
                           e.stopPropagation()
-                          handleDeleteIndex(indexName)
+                          handleIndexClick(indexName)
                         }}
                       >
-                        Delete
+                        {expandedIndex === indexName
+                          ? 'Hide Documents'
+                          : 'View Documents'}
                       </Button>
-                    )}
+                      {user?.roles?.includes('admin') && (
+                        <Button
+                          variant='light'
+                          color='red'
+                          size='sm'
+                          onClick={e => {
+                            e.stopPropagation()
+                            handleDeleteIndex(indexName)
+                          }}
+                        >
+                          Delete
+                        </Button>
+                      )}
+                    </Group>
                   </Group>
-                </Group>
-              </Card>
+                </Card>
+                <Collapse in={expandedIndex === indexName}>
+                  <Card withBorder ml='md' mb='md'>
+                    {isLoadingDocuments ? (
+                      <Text>Loading documents...</Text>
+                    ) : documentsList.documents.length === 0 ? (
+                      <Text color='dimmed'>No documents in this index</Text>
+                    ) : (
+                      <List>
+                        {documentsList.documents.map((doc: Document) => (
+                          <List.Item key={doc.id}>
+                            {doc.metadata.filename}
+                          </List.Item>
+                        ))}
+                      </List>
+                    )}
+                  </Card>
+                </Collapse>
+              </div>
             ))}
             {!isLoading && indexList.length === 0 && (
               <Text ta='center' color='dimmed'>
@@ -159,7 +202,7 @@ export default function IndexesPage () {
           </Card>
         </Tabs.Panel>
 
-        {user?.roles.includes('admin') && (
+        {user?.roles?.includes('admin') && (
           <Tabs.Panel value='create' pt='xl'>
             <Card withBorder p='xl'>
               <form onSubmit={handleCreateIndex}>

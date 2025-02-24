@@ -99,38 +99,65 @@ class LLMClient:
         self, query: str, context: List[Dict], max_tokens: int = 500
     ) -> str:
         """Generate completion using RAG context."""
-        # Format context with numbers for citation
-        formatted_context = "\n\n".join(
-            f"Context {i + 1}:\n{item['text']}" for i, item in enumerate(context)
-        )
+        # Group contexts by source document to avoid duplicate citations
+        doc_contexts = {}
+        for item in context:
+            doc_id = item["metadata"]["filename"]
+            if doc_id not in doc_contexts:
+                doc_contexts[doc_id] = []
+            doc_contexts[doc_id].append(item["text"])
+
+        # Format context with numbers for citation, using document as the basis
+        formatted_contexts = []
+        for i, (doc_id, texts) in enumerate(doc_contexts.items()):
+            # Join all contexts from the same document
+            doc_text = "\n".join(texts)
+            formatted_contexts.append(f"Context {i + 1} (from {doc_id}):\n{doc_text}")
+
+        formatted_context = "\n\n".join(formatted_contexts)
 
         prompt = f"""Use the following numbered contexts to answer the question.
 If you cannot find the answer in the contexts, say so.
-Important: Use superscript numbers (e.g. ¹, ², ³) to cite your sources inline with the text.
-For example: "The model uses a four-stage pipeline¹ and includes rejection sampling²."
+Important instructions for response format:
+1. First provide your answer, using superscript numbers (e.g. ¹) to cite sources
+2. Then add a blank line
+3. Then write "Citation" as a header
+4. Then list ONLY the documents you cited in your answer, numbered to match your citations
+5. Do not add the word "Citation" anywhere except as the final section header
+6. Do not list any sources that weren't cited in your answer
+7. Do not list the same source multiple times
+
+Example answer format:
+The model uses a four-stage pipeline¹ and includes rejection sampling².
+
+[Your answer should end here, followed by exactly two newlines before the Citation section]
+
+Citation
+1. pipeline_docs.pdf
+2. sampling_guide.pdf
 
 {formatted_context}
 
 Question: {query}
 
-Answer (with citations):"""
+Answer (with citations, followed by two newlines and then the Citation section):"""
 
         try:
             print(f"Attempting chat completion with deployment: {self.chat_deployment}")
             print(f"Query: {query}")
-            print(f"Context length: {len(context)}")
+            print(f"Number of source documents: {len(doc_contexts)}")
 
             response = self.chat_client.chat.completions.create(
                 model=self.chat_deployment,
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a helpful assistant that answers questions based on the provided context. Use superscript numbers to cite your sources inline with the text. Ensure each claim is supported by a citation.",
+                        "content": "You are a helpful assistant that answers questions based on the provided context. Use superscript numbers to cite sources in your answer. After your answer, add exactly two newlines, then a 'Citation' section that lists only the sources you actually cited. The word 'Citation' should only appear once, at the start of the citation list. Keep your answer focused and concise.",
                     },
                     {"role": "user", "content": prompt},
                 ],
                 max_tokens=max_tokens,
-                temperature=0.7,
+                temperature=0.3,
             )
             print("Chat completion successful")
             return response.choices[0].message.content

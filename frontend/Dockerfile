@@ -1,3 +1,14 @@
+# Development stage
+FROM node:20-alpine as development
+
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+
+EXPOSE 5173
+CMD ["npm", "run", "dev", "--", "--host"]
+
 # Build stage
 FROM node:20-alpine as build
 
@@ -12,7 +23,7 @@ RUN echo "VITE_API_URL=/api" > .env.production
 RUN npm run build
 
 # Production stage
-FROM nginx:alpine
+FROM nginx:alpine as production
 
 # Copy built assets
 COPY --from=build /app/dist /usr/share/nginx/html

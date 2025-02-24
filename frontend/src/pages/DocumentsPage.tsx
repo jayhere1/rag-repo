@@ -16,7 +16,7 @@ import {
   Select
 } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
-import { indexes, documents, Document } from '../lib/api'
+import { indexes, documents, Document, auth } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import { IconTrash, IconUpload } from '@tabler/icons-react'
 import { notifications } from '@mantine/notifications'
@@ -27,8 +27,9 @@ export default function DocumentsPage () {
   const [isLoading, setIsLoading] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [selectedIndex, setSelectedIndex] = useState<string>('')
-  const [selectedRoles, setSelectedRoles] = useState<string[]>([])
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
+  const [availableUsers, setAvailableUsers] = useState<string[]>([])
   const [uploadLoading, setUploadLoading] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -37,6 +38,12 @@ export default function DocumentsPage () {
   const { data: indexList = [] } = useQuery({
     queryKey: ['indexes'],
     queryFn: indexes.list
+  })
+
+  const { data: userList = [] } = useQuery<string[]>({
+    queryKey: ['users'],
+    queryFn: auth.listUsers,
+    enabled: user?.roles?.includes('admin') ?? false
   })
 
   const fetchAllDocuments = async (page: number = 1) => {
@@ -103,7 +110,7 @@ export default function DocumentsPage () {
           <Title order={2}>Document Management</Title>
         </Group>
 
-        {user?.roles.includes('admin') && indexList.length > 0 && (
+        {user?.roles?.includes('admin') && indexList.length > 0 && (
           <Card withBorder p='xl'>
             <Stack>
               <Title order={4}>Upload Document</Title>
@@ -127,18 +134,26 @@ export default function DocumentsPage () {
                 required
               />
               <MultiSelect
-                label='Allowed Roles'
-                placeholder='Select roles'
-                value={selectedRoles}
-                onChange={setSelectedRoles}
-                data={['user', 'admin']}
+                label='Document Categories'
+                placeholder='Select categories'
+                value={selectedCategories}
+                onChange={setSelectedCategories}
+                data={[
+                  { value: 'hr_docs', label: 'HR Documents' },
+                  { value: 'operations', label: 'Operations' },
+                  { value: 'safety', label: 'Safety' },
+                  { value: 'technical', label: 'Technical' }
+                ]}
               />
               <MultiSelect
                 label='Allowed Users'
-                placeholder='Enter usernames'
+                placeholder='Select users'
                 value={selectedUsers}
                 onChange={setSelectedUsers}
-                data={selectedUsers}
+                data={userList.map((username: string) => ({
+                  value: username,
+                  label: username
+                }))}
                 searchable
               />
               <Button
@@ -148,7 +163,7 @@ export default function DocumentsPage () {
                   try {
                     setUploadLoading(true)
                     await documents.upload(selectedIndex, selectedFile, {
-                      roles: selectedRoles,
+                      categories: selectedCategories,
                       users: selectedUsers
                     })
                     notifications.show({
@@ -158,7 +173,7 @@ export default function DocumentsPage () {
                     })
                     setSelectedFile(null)
                     setSelectedIndex('')
-                    setSelectedRoles([])
+                    setSelectedCategories([])
                     setSelectedUsers([])
                     fetchAllDocuments()
                   } catch (error) {
@@ -217,11 +232,19 @@ export default function DocumentsPage () {
                       </Table.Td>
                       <Table.Td>
                         <Group gap='xs'>
-                          {doc.metadata.allowed_roles.map(role => (
-                            <Badge key={role} size='sm'>
-                              {role}
-                            </Badge>
-                          ))}
+                          {doc.metadata.allowed_categories.map(category => {
+                            const categoryLabels: Record<string, string> = {
+                              hr_docs: 'HR Documents',
+                              operations: 'Operations',
+                              safety: 'Safety',
+                              technical: 'Technical'
+                            }
+                            return (
+                              <Badge key={category} size='sm'>
+                                {categoryLabels[category] || category}
+                              </Badge>
+                            )
+                          })}
                           {doc.metadata.allowed_users.length > 0 && (
                             <Badge size='sm' color='violet'>
                               {doc.metadata.allowed_users.length} users
@@ -231,7 +254,7 @@ export default function DocumentsPage () {
                       </Table.Td>
                       <Table.Td>
                         <Group gap='xs'>
-                          {user?.roles.includes('admin') && (
+                          {user?.roles?.includes('admin') && (
                             <ActionIcon
                               color='red'
                               variant='subtle'

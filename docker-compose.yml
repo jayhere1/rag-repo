@@ -41,29 +41,20 @@ services:
       - "443:443"
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d
-      - ./nginx/www:/var/www
-      - certbot-etc:/etc/letsencrypt:ro
-      - certbot-var:/var/lib/letsencrypt:ro
       - ./nginx/www:/var/www/html
+      - app_certbot-etc:/etc/letsencrypt:ro
+      - app_certbot-var:/var/lib/letsencrypt:ro
     depends_on:
       - frontend
       - backend
     restart: unless-stopped
 
-  certbot:
-    image: certbot/certbot
-    volumes:
-      - certbot-etc:/etc/letsencrypt
-      - certbot-var:/var/lib/letsencrypt
-      - ./nginx/www:/var/www/html
-    depends_on:
-      - nginx
-    command: certonly --webroot --webroot-path=/var/www/html --email jay@bcdilab.com --agree-tos --no-eff-email -d innov8nxt-factorygpt.com -d www.innov8nxt-factorygpt.com
-
 volumes:
   weaviate_data:
-  certbot-etc:
-  certbot-var:
+  app_certbot-etc:
+    external: true
+  app_certbot-var:
+    external: true
 
 networks:
   default:
