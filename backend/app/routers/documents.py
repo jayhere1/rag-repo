@@ -234,6 +234,7 @@ async def upload_document(
     access: str = Form(...),
     current_user: User = Depends(get_current_user),
 ):
+    """Upload and process a document with access control."""
     # Parse and validate access data
     try:
         access_request = DocumentUploadRequest.from_json(access)
@@ -252,7 +253,7 @@ async def upload_document(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Invalid access data: {str(e)}",
         )
-    """Upload and process a document with access control."""
+
     # Debug logging
     print("Upload request received:")
     print(f"Index: {index_name}")
@@ -265,6 +266,7 @@ async def upload_document(
     print(f"Form data length: {len(form_data)}")
     print(f"First 100 bytes: {form_data[:100]}")
     await file.seek(0)  # Reset file pointer for later processing
+
     # Check if user is admin (case-insensitive)
     if not any(role.lower() == "admin" for role in current_user.roles):
         raise HTTPException(
@@ -283,15 +285,22 @@ async def upload_document(
     }
 
     try:
-        try:
-            # Read file content
-            content = await file.read()
+        # Read file content
+        content = await file.read()
+        print(f"Read file content: {len(content)} bytes")
+        print(f"File content type: {type(content)}")
+        print(f"File content first 50 bytes: {content[:50]}")
+        print(f"File headers: {file.headers}")
+        print(f"File content_type: {file.content_type}")
+        print(f"File filename: {file.filename}")
+        print(f"File size: {file.size}")
 
-            # Process document into chunks with metadata
+        # Process document into chunks with metadata
+        try:
             chunks = doc_processor.process_document(content, metadata)
             print(f"Successfully processed document into {len(chunks)} chunks")
         except Exception as e:
-            print(f"Error processing document: {str(e)}")
+            print(f"Error in document processing: {type(e).__name__}: {str(e)}")
             raise
 
         # Get embeddings for all chunks
@@ -405,6 +414,7 @@ async def query_documents(
                     ),
                     sources=[],
                 )
+
         except Exception as e:
             print(f"Error during vector store search: {type(e).__name__}: {str(e)}")
             raise HTTPException(
@@ -430,6 +440,14 @@ async def query_documents(
         print("Generating answer using LLM...")
         answer = llm_client.get_completion(query_request.query, sources)
         print("Answer generated successfully")
+
+        # If the answer indicates no relevant information, return without sources
+        if (
+            "no relevant information" in answer.lower()
+            or "do not contain information" in answer.lower()
+            or "not contain information" in answer.lower()
+        ):
+            return QueryResponse(answer=answer, sources=[])
 
         # Extract citation numbers from the answer
         import re

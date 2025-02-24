@@ -1,4 +1,4 @@
-import { useState, useEffect, ReactElement } from 'react'
+import { useState, useEffect, ReactElement, useRef } from 'react'
 import {
   TextInput,
   Box,
@@ -18,6 +18,7 @@ import {
   ActionIcon as MantineActionIcon
 } from '@mantine/core'
 import { useAuth } from '../contexts/AuthContext'
+import { useChat } from '../contexts/ChatContext'
 import { useParams } from 'react-router-dom'
 import { documents } from '../lib/api'
 import { notifications } from '@mantine/notifications'
@@ -57,8 +58,6 @@ interface ChatSession {
 export default function ChatPage (): ReactElement {
   const { indexName } = useParams()
   const [message, setMessage] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
@@ -67,169 +66,39 @@ export default function ChatPage (): ReactElement {
     metadata: Record<string, any>
   } | null>(null)
 
-  const [currentSessionId, setCurrentSessionId] = useState<string>(() => {
-    // Create a new session if none exists
-    const newSessionId = new Date().toISOString()
-    const sessions = JSON.parse(localStorage.getItem('chatSessions') || '{}')
-    if (Object.keys(sessions).length === 0) {
-      sessions[newSessionId] = {
-        id: newSessionId,
-        name: 'New Chat',
-        messages: [],
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
-      localStorage.setItem('chatSessions', JSON.stringify(sessions))
-    }
-    return Object.keys(sessions)[0]
-  })
-
-  const [sessions, setSessions] = useState<Record<string, ChatSession>>(() => {
-    const saved = localStorage.getItem('chatSessions')
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        // Convert date strings back to Date objects
-        return Object.fromEntries(
-          Object.entries(parsed).map(([id, session]: [string, any]) => [
-            id,
-            {
-              ...session,
-              messages: session.messages.map((msg: any) => ({
-                ...msg,
-                timestamp: new Date(msg.timestamp)
-              })),
-              createdAt: new Date(session.createdAt),
-              updatedAt: new Date(session.updatedAt)
-            }
-          ])
-        )
-      } catch (e) {
-        console.error('Failed to parse chat sessions:', e)
-        return {}
-      }
-    }
-    return {}
-  })
-
-  const currentSession = sessions[currentSessionId]
-  const messages = currentSession?.messages || []
-
-  // Save to localStorage whenever sessions change
-  useEffect(() => {
-    localStorage.setItem('chatSessions', JSON.stringify(sessions))
-  }, [sessions])
-
-  const createNewSession = () => {
-    const newSessionId = new Date().toISOString()
-    setSessions(prev => ({
-      ...prev,
-      [newSessionId]: {
-        id: newSessionId,
-        name: 'New Chat',
-        messages: [],
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
-    }))
-    setCurrentSessionId(newSessionId)
-    setHistoryOpen(false)
-  }
-
-  const updateSession = (sessionId: string, updates: Partial<ChatSession>) => {
-    setSessions(prev => ({
-      ...prev,
-      [sessionId]: {
-        ...prev[sessionId],
-        ...updates,
-        updatedAt: new Date()
-      }
-    }))
-  }
-
-  const deleteSession = (sessionId: string) => {
-    setSessions(prev => {
-      const newSessions = { ...prev }
-      delete newSessions[sessionId]
-      return newSessions
-    })
-    if (sessionId === currentSessionId) {
-      const remainingIds = Object.keys(sessions)
-      if (remainingIds.length > 0) {
-        setCurrentSessionId(remainingIds[0])
-      } else {
-        createNewSession()
-      }
-    }
-  }
-
-  const clearChat = () => {
-    updateSession(currentSessionId, { messages: [] })
-    setError(null)
-  }
-
   const { user } = useAuth()
+  const {
+    messages,
+    loading,
+    error,
+    sessions,
+    currentSessionId,
+    sendMessage,
+    createNewSession,
+    updateSession,
+    deleteSession,
+    clearChat,
+    setCurrentSessionId
+  } = useChat()
+
+  const viewport = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (viewport.current) {
+      viewport.current.scrollTo({
+        top: viewport.current.scrollHeight,
+        behavior: 'smooth'
+      })
+    }
+  }, [messages])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!message.trim() || loading) return
 
     const userMessage = message.trim()
-    setLoading(true)
-    setError(null)
-
-    // Add user message immediately
-    const newMessages = [
-      ...messages,
-      {
-        type: 'user' as const,
-        content: userMessage,
-        timestamp: new Date()
-      }
-    ]
-    updateSession(currentSessionId, { messages: newMessages })
     setMessage('')
-
-    try {
-      const result = await documents.query({
-        query: userMessage,
-        ...(indexName ? { index_name: indexName } : {})
-      })
-
-      if (!result?.answer) {
-        throw new Error('No response received')
-      }
-
-      // Add assistant response with sources
-      updateSession(currentSessionId, {
-        messages: [
-          ...newMessages,
-          {
-            type: 'assistant',
-            content: result.answer,
-            timestamp: new Date(),
-            sources: result.sources
-          }
-        ]
-      })
-
-      notifications.show({
-        title: 'Success',
-        message: 'Message sent successfully',
-        color: 'green'
-      })
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : 'Failed to send message'
-      setError(errorMessage)
-      notifications.show({
-        title: 'Error',
-        message: errorMessage,
-        color: 'red'
-      })
-    } finally {
-      setLoading(false)
-    }
+    await sendMessage(userMessage, indexName)
   }
 
   return (
@@ -278,39 +147,49 @@ export default function ChatPage (): ReactElement {
         </Button>
       </Group>
 
-      <ScrollArea h='calc(100vh - 200px)' mb='xl'>
-        <Stack gap='md'>
+      <ScrollArea
+        h='calc(100vh - 200px)'
+        mb='xl'
+        viewportRef={viewport}
+        style={{ background: 'var(--mantine-color-gray-0)' }}
+      >
+        <Stack gap='lg' p='md'>
           {messages.map((msg, index) => (
             <Card
               key={index}
-              withBorder
+              withBorder={false}
+              shadow='sm'
               style={{
                 maxWidth: '80%',
                 marginLeft: msg.type === 'assistant' ? 0 : 'auto',
                 marginRight: msg.type === 'user' ? 0 : 'auto',
                 backgroundColor:
-                  msg.type === 'user'
-                    ? 'var(--mantine-color-blue-0)'
-                    : undefined
+                  msg.type === 'user' ? 'var(--mantine-color-blue-6)' : 'white',
+                borderRadius: '1rem',
+                ...(msg.type === 'user'
+                  ? { borderTopRightRadius: '0.25rem' }
+                  : { borderTopLeftRadius: '0.25rem' })
               }}
             >
-              <Group gap='xs' mb='xs'>
-                {msg.type === 'user' ? (
-                  <IconUser size={20} />
-                ) : (
-                  <IconRobot size={20} />
-                )}
-                <Text size='sm' c='dimmed'>
-                  {msg.type === 'user' ? 'You' : 'Assistant'} •{' '}
-                  {msg.timestamp.toLocaleTimeString()}
-                </Text>
-              </Group>
-              <Stack gap='lg'>
-                <Box>
-                  <Text fw={500} mb='sm'>
-                    Answer
+              <Stack gap='md'>
+                <Group gap='xs' mb='xs'>
+                  {msg.type === 'user' ? (
+                    <IconUser size={20} color='white' />
+                  ) : (
+                    <IconRobot size={20} color='var(--mantine-color-blue-6)' />
+                  )}
+                  <Text size='sm' c={msg.type === 'user' ? 'white' : 'dimmed'}>
+                    {msg.type === 'user' ? 'You' : 'Assistant'} •{' '}
+                    {msg.timestamp.toLocaleTimeString()}
                   </Text>
-                  <Text>
+                </Group>
+                <Box>
+                  <Text
+                    style={{
+                      color: msg.type === 'user' ? 'white' : 'inherit',
+                      lineHeight: 1.6
+                    }}
+                  >
                     {msg.content.split(/\n\s*Citation\s*\n/)[0].trim()}
                   </Text>
                 </Box>
@@ -380,7 +259,9 @@ export default function ChatPage (): ReactElement {
           bottom: '20px',
           left: '20px',
           right: '20px',
-          padding: '10px'
+          padding: '16px',
+          borderRadius: '1rem',
+          backgroundColor: 'white'
         }}
       >
         <form onSubmit={handleSubmit}>
@@ -395,11 +276,24 @@ export default function ChatPage (): ReactElement {
               onChange={e => setMessage(e.target.value)}
               style={{ flex: 1 }}
               disabled={!user || loading}
+              size='md'
+              radius='xl'
+              styles={{
+                input: {
+                  backgroundColor: 'var(--mantine-color-gray-0)',
+                  border: 'none',
+                  '&:focus': {
+                    border: 'none',
+                    backgroundColor: 'var(--mantine-color-gray-1)'
+                  }
+                }
+              }}
             />
             <ActionIcon
               variant='subtle'
               color='gray'
-              size='lg'
+              size='xl'
+              radius='xl'
               onClick={() => {
                 /* TODO: Implement voice input */
               }}
@@ -410,7 +304,8 @@ export default function ChatPage (): ReactElement {
             <ActionIcon
               variant='filled'
               color='blue'
-              size='lg'
+              size='xl'
+              radius='xl'
               type='submit'
               disabled={!user || !message.trim() || loading}
             >

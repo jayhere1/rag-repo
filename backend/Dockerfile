@@ -1,5 +1,5 @@
 # Development stage
-FROM python:3.11-slim as development
+FROM python:3.11-slim AS development
 
 WORKDIR /app
 
@@ -23,7 +23,7 @@ EXPOSE 8001
 CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
 
 # Production stage
-FROM python:3.11-slim as production
+FROM python:3.11-slim AS production
 
 WORKDIR /app
 

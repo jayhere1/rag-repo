@@ -56,6 +56,7 @@ export function AuthProvider ({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     localStorage.removeItem('token')
+    localStorage.removeItem('chatSessions')
     setUser(null)
     setError(null)
   }
