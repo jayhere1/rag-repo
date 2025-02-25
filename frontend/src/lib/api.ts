@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "http://localhost:8001/api";
+const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -26,25 +26,64 @@ export interface LoginCredentials {
 export interface User {
   username: string;
   roles: string[];
+  access_categories: string[];
 }
 
 export const auth = {
-  login: async (credentials: LoginCredentials) => {
-    const formData = new FormData();
-    formData.append("username", credentials.username);
-    formData.append("password", credentials.password);
-
-    const response = await api.post("/auth/token", formData, {
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-    });
+  listUsers: async (): Promise<string[]> => {
+    const response = await api.get("/auth/users");
     return response.data;
   },
 
+  login: async (credentials: LoginCredentials) => {
+    console.log("Attempting login with username:", credentials.username);
+
+    // Create URLSearchParams for proper x-www-form-urlencoded format
+    const formData = new URLSearchParams();
+    formData.append("username", credentials.username);
+    formData.append("password", credentials.password);
+
+    try {
+      console.log("Sending login request to:", `${API_URL}/auth/token`);
+      const response = await api.post("/auth/token", formData.toString(), {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      });
+      console.log("Login response:", response.data);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        console.error("Login request failed:", {
+          status: error.response?.status,
+          data: error.response?.data,
+          headers: error.response?.headers,
+        });
+      } else {
+        console.error("Login error:", error);
+      }
+      throw error;
+    }
+  },
+
   getUser: async (): Promise<User> => {
-    const response = await api.get("/auth/me");
-    return response.data;
+    try {
+      console.log("Fetching user data");
+      const response = await api.get("/auth/me");
+      console.log("User data response:", response.data);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        console.error("Get user request failed:", {
+          status: error.response?.status,
+          data: error.response?.data,
+          headers: error.response?.headers,
+        });
+      } else {
+        console.error("Get user error:", error);
+      }
+      throw error;
+    }
   },
 };
 
@@ -71,16 +110,27 @@ export const indexes = {
 };
 
 export interface DocumentAccess {
-  roles: string[];
+  categories: string[];
   users: string[];
+}
+
+export interface Chunk {
+  id: string;
+  text: string;
+  index: number;
 }
 
 export interface DocumentMetadata {
   owner: string;
-  allowed_roles: string[];
+  allowed_categories: string[];
   allowed_users: string[];
   filename: string;
   upload_time: string;
+  index_name: string;
+  size: number;
+  chunk_index: number;
+  total_chunks: number;
+  chunks?: Chunk[];
 }
 
 export interface Document {
@@ -100,6 +150,7 @@ export interface QueryResponse {
   sources: Array<{
     text: string;
     metadata: Record<string, any>;
+    relevance?: number;
   }>;
 }
 
@@ -116,7 +167,23 @@ export const documents = {
     const response = await api.get(`/documents/${indexName}`, {
       params: { page, limit },
     });
-    return response.data;
+
+    // Add index_name to each document's metadata
+    // Ensure we preserve all original metadata fields while adding index_name
+    const documents = response.data.documents.map((doc: Document) => {
+      // First check if metadata exists and has the expected structure
+      const metadata = doc.metadata || {};
+      return {
+        ...doc,
+        metadata: {
+          ...metadata,
+          index_name: indexName,
+          size: metadata.size || 0, // Ensure size is always present
+        },
+      };
+    });
+
+    return { documents };
   },
 
   delete: async (indexName: string, documentId: string): Promise<void> => {
@@ -127,19 +194,25 @@ export const documents = {
     const formData = new FormData();
     formData.append("file", file);
 
-    // Log what we're sending
-    console.log("Uploading document with access:", access);
+    // Log request details
+    console.log("Uploading document:", {
+      file,
+      indexName,
+      access,
+    });
 
     // Send access data as form field
-    formData.append(
-      "access",
-      JSON.stringify({
-        access: {
-          roles: access.roles,
-          users: access.users,
-        },
-      })
-    );
+    const accessData = {
+      access: {
+        categories: access.categories,
+        users: access.users,
+      },
+    };
+
+    // Log the stringified access data for debugging
+    console.log("Access data to be sent:", JSON.stringify(accessData, null, 2));
+
+    formData.append("access", JSON.stringify(accessData));
 
     // Log form data entries
     for (const [key, value] of formData.entries()) {
@@ -160,6 +233,34 @@ export const documents = {
 
   query: async (request: QueryRequest): Promise<QueryResponse> => {
     const response = await api.post("/documents/query", request);
-    return response.data;
+    console.log("Full API response:", {
+      status: response.status,
+      headers: response.headers,
+      data: response.data,
+    });
+
+    // Ensure we're getting the expected data structure
+    const data = response.data;
+    if (!data || typeof data !== "object") {
+      throw new Error("Invalid response format: expected object");
+    }
+
+    if (!("answer" in data) || !("sources" in data)) {
+      throw new Error("Invalid response format: missing required fields");
+    }
+
+    if (!Array.isArray(data.sources)) {
+      throw new Error("Invalid response format: sources must be an array");
+    }
+
+    return {
+      answer: String(data.answer),
+      sources: data.sources.map(
+        (source: { text?: string; metadata?: Record<string, any> }) => ({
+          text: String(source.text || ""),
+          metadata: source.metadata || {},
+        })
+      ),
+    };
   },
 };

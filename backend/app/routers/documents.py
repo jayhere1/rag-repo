@@ -24,8 +24,8 @@ llm_client = LLMClient()
 
 
 class DocumentAccess(BaseModel):
-    roles: List[str] = []
-    users: List[str] = []
+    categories: List[str] = []  # Document categories (hr_docs, operations, etc.)
+    users: List[str] = []  # Specific users who can access this document
 
 
 class QueryRequest(BaseModel):
@@ -37,13 +37,33 @@ class QueryRequest(BaseModel):
 class DocumentUploadRequest(BaseModel):
     access: DocumentAccess
 
+    @classmethod
+    def from_json(cls, json_str: str) -> "DocumentUploadRequest":
+        """Create a DocumentUploadRequest from a JSON string."""
+        try:
+            data = json.loads(json_str)
+            if (
+                isinstance(data, dict)
+                and "access" in data
+                and isinstance(data["access"], dict)
+            ):
+                # If the data has nested access structure, use the inner access object
+                if "categories" in data["access"] and "users" in data["access"]:
+                    return cls(access=DocumentAccess(**data["access"]))
+            raise ValueError("Invalid access data structure")
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON: {str(e)}")
+        except Exception as e:
+            raise ValueError(f"Invalid data structure: {str(e)}")
+
 
 class DocumentMetadata(BaseModel):
     owner: str
-    allowed_roles: List[str]
+    allowed_categories: List[str]
     allowed_users: List[str]
     filename: str
     upload_time: str
+    size: int
 
 
 class Document(BaseModel):
@@ -70,60 +90,110 @@ async def list_documents(
 ):
     """List documents in an index with pagination."""
     try:
-        try:
-            # Get all documents
-            documents = vector_store.list_documents(
-                index_name, skip=(page - 1) * limit, limit=limit
-            )
+        # Get all documents
+        documents = vector_store.list_documents(
+            index_name, skip=(page - 1) * limit, limit=limit
+        )
 
-            # Filter based on access control
-            filtered_docs = []
-            for doc in documents:
-                try:
-                    metadata = doc.get("metadata", "{}")
-                    if isinstance(metadata, str):
-                        metadata = json.loads(metadata)
+        # Group and filter documents
+        doc_groups = {}
+        for doc in documents:
+            try:
+                metadata = doc.get("metadata", "{}")
+                if isinstance(metadata, str):
+                    metadata = json.loads(metadata)
 
-                    # Ensure metadata is a dictionary
-                    if not isinstance(metadata, dict):
-                        metadata = {}
+                # Ensure metadata is a dictionary
+                if not isinstance(metadata, dict):
+                    metadata = {}
 
-                    # Create document with properly structured metadata
-                    document = {
-                        "id": doc.get("id", ""),
-                        "text": doc.get("text", ""),
-                        "metadata": {
-                            "owner": metadata.get("owner", ""),
-                            "allowed_roles": metadata.get("allowed_roles", []),
-                            "allowed_users": metadata.get("allowed_users", []),
-                            "filename": metadata.get("filename", "unknown"),
-                            "upload_time": metadata.get("upload_time", ""),
-                        },
-                    }
+                # Check access permissions
+                allowed_categories = metadata.get("allowed_categories", [])
+                allowed_users = metadata.get("allowed_users", [])
 
-                    # Admin can see all documents
-                    if "admin" in current_user.roles:
-                        filtered_docs.append(document)
-                        continue
+                print("Access check details:")
+                print(f"- Document metadata: {json.dumps(metadata, indent=2)}")
+                print(f"- User categories: {current_user.access_categories}")
+                print(f"- Username: {current_user.username}")
 
-                    # Check user roles and specific access
-                    allowed_roles = metadata.get("allowed_roles", [])
-                    allowed_users = metadata.get("allowed_users", [])
+                # Admin has access to all documents
+                is_admin = any(role.lower() == "admin" for role in current_user.roles)
 
-                    if (
-                        any(role in allowed_roles for role in current_user.roles)
-                        or current_user.username in allowed_users
-                    ):
-                        filtered_docs.append(document)
-                except Exception as e:
-                    print(f"Error processing document: {e}")
+                # Check if user has access to any of the document's categories
+                has_category_access = any(
+                    cat in current_user.access_categories for cat in allowed_categories
+                )
+
+                # Check if username matches
+                has_user_access = current_user.username in allowed_users
+
+                print("Access evaluation:")
+                print(f"- Admin access: {is_admin}")
+                print(f"- Category match: {has_category_access}")
+                print(f"- User match: {has_user_access}")
+
+                has_access = is_admin or has_category_access or has_user_access
+                print(f"- Final decision: {has_access}")
+
+                if has_access:
+                    print("Access granted - document included")
+                else:
+                    print("Access denied - document filtered out")
                     continue
-        except Exception as e:
-            print(f"Error listing documents: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to list documents: {str(e)}",
-            )
+
+                # Create document with properly structured metadata
+                document = {
+                    "id": doc.get("id", ""),
+                    "text": doc.get("text", ""),
+                    "metadata": {
+                        "owner": metadata.get("owner", ""),
+                        "allowed_categories": metadata.get("allowed_categories", []),
+                        "allowed_users": metadata.get("allowed_users", []),
+                        "filename": metadata.get("filename", "unknown"),
+                        "upload_time": metadata.get("upload_time", ""),
+                        "size": metadata.get("size", 0),
+                        "chunk_index": metadata.get("chunk_index", 0),
+                        "total_chunks": metadata.get("total_chunks", 1),
+                    },
+                }
+
+                # Group by filename and upload time
+                group_key = (
+                    metadata.get("filename", "unknown"),
+                    metadata.get("upload_time", ""),
+                )
+
+                if group_key not in doc_groups:
+                    doc_groups[group_key] = []
+                doc_groups[group_key].append(document)
+            except Exception as e:
+                print(f"Error processing document: {e}")
+                continue
+
+        # Sort chunks within each group and add chunk info
+        filtered_docs = []
+        for docs in doc_groups.values():
+            if not docs:
+                continue
+
+            # Sort chunks by index
+            docs.sort(key=lambda x: x["metadata"]["chunk_index"])
+
+            # Add all chunks to the first document's metadata
+            representative_doc = docs[0]
+            chunks = []
+            for chunk in docs:
+                chunks.append(
+                    {
+                        "id": chunk["id"],
+                        "text": chunk["text"],
+                        "index": chunk["metadata"]["chunk_index"],
+                    }
+                )
+
+            # Update metadata to include chunks
+            representative_doc["metadata"]["chunks"] = chunks
+            filtered_docs.append(representative_doc)
 
         return ListDocumentsResponse(documents=filtered_docs)
     except Exception as e:
@@ -137,7 +207,8 @@ async def delete_document(
     index_name: str, document_id: str, current_user: User = Depends(get_current_user)
 ):
     """Delete a document from an index."""
-    if "admin" not in current_user.roles:
+    # Check if user is admin (case-insensitive)
+    if not any(role.lower() == "admin" for role in current_user.roles):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admins can delete documents",
@@ -163,33 +234,41 @@ async def upload_document(
     access: str = Form(...),
     current_user: User = Depends(get_current_user),
 ):
-    # Parse access JSON string into DocumentUploadRequest
+    """Upload and process a document with access control."""
+    # Parse and validate access data
     try:
-        access_data = json.loads(access)
-        access_request = DocumentUploadRequest(**access_data)
+        access_request = DocumentUploadRequest.from_json(access)
     except json.JSONDecodeError as e:
         print(f"Error parsing access JSON: {e}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid access data format"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid access data format: {str(e)}",
         )
+    except ValueError as e:
+        print(f"Error validating access data structure: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         print(f"Error validating access data: {e}")
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid access data: {str(e)}",
         )
-    """Upload and process a document with access control."""
+
     # Debug logging
     print("Upload request received:")
     print(f"Index: {index_name}")
     print(f"Access data: {access}")
     print(f"File: {file.filename}")
+    print(f"Content type: {file.content_type}")
 
     # Log form data
     form_data = await file.read()
     print(f"Form data length: {len(form_data)}")
+    print(f"First 100 bytes: {form_data[:100]}")
     await file.seek(0)  # Reset file pointer for later processing
-    # Check if user is admin
-    if "admin" not in current_user.roles:
+
+    # Check if user is admin (case-insensitive)
+    if not any(role.lower() == "admin" for role in current_user.roles):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admins can upload documents",
@@ -198,18 +277,31 @@ async def upload_document(
     filename = file.filename or "unknown"
     metadata = {
         "owner": current_user.username,
-        "allowed_roles": access_request.access.roles,
+        "allowed_categories": access_request.access.categories,
         "allowed_users": access_request.access.users,
         "filename": filename,
         "upload_time": datetime.utcnow().isoformat(),
+        "size": len(form_data),
     }
 
     try:
         # Read file content
         content = await file.read()
+        print(f"Read file content: {len(content)} bytes")
+        print(f"File content type: {type(content)}")
+        print(f"File content first 50 bytes: {content[:50]}")
+        print(f"File headers: {file.headers}")
+        print(f"File content_type: {file.content_type}")
+        print(f"File filename: {file.filename}")
+        print(f"File size: {file.size}")
 
         # Process document into chunks with metadata
-        chunks = doc_processor.process_document(content, metadata)
+        try:
+            chunks = doc_processor.process_document(content, metadata)
+            print(f"Successfully processed document into {len(chunks)} chunks")
+        except Exception as e:
+            print(f"Error in document processing: {type(e).__name__}: {str(e)}")
+            raise
 
         # Get embeddings for all chunks
         texts = [chunk["text"] for chunk in chunks]
@@ -244,67 +336,177 @@ async def query_documents(
         query_embedding = llm_client.get_query_embedding(query_request.query)
         print("Query embedding obtained successfully")
 
-        # Prepare vector store filters based on user access
-        filters = None
-        if "admin" not in current_user.roles:
-            # Create a filter that matches documents where:
-            # 1. User's roles intersect with allowed_roles OR
-            # 2. User's username is in allowed_users
-            filters = {
-                "operator": "Or",
-                "operands": [
-                    {
-                        "operator": "ContainsAny",
-                        "path": ["metadata", "allowed_roles"],
-                        "valueStringArray": current_user.roles,
-                    },
-                    {
-                        "operator": "ContainsAny",
-                        "path": ["metadata", "allowed_users"],
-                        "valueStringArray": [current_user.username],
-                    },
-                ],
+        try:
+            # Search vector store without filters first
+            print("Searching vector store...")
+            if query_request.index_name:
+                print(f"Searching specific index: {query_request.index_name}")
+                results = vector_store.search(query_request.index_name, query_embedding)
+            else:
+                print("Searching across all indexes")
+                results = vector_store.search_all_collections(query_embedding)
+            print(f"Found {len(results)} results from vector store")
+
+            # Parse metadata and filter by access
+            filtered_results = []
+            for result in results:
+                try:
+                    metadata = (
+                        json.loads(result["metadata"])
+                        if isinstance(result["metadata"], str)
+                        else result["metadata"]
+                    )
+
+                    # Print raw metadata for debugging
+                    print("Raw metadata:", json.dumps(metadata, indent=2))
+
+                    # Check access permissions
+                    allowed_categories = metadata.get("allowed_categories", [])
+                    allowed_users = metadata.get("allowed_users", [])
+
+                    print("Access check details:")
+                    print(f"- Document metadata: {json.dumps(metadata, indent=2)}")
+                    print(f"- User categories: {current_user.access_categories}")
+                    print(f"- Username: {current_user.username}")
+
+                    # Admin has access to all documents
+                    is_admin = any(
+                        role.lower() == "admin" for role in current_user.roles
+                    )
+
+                    # Check if user has access to any of the document's categories
+                    has_category_access = any(
+                        cat in current_user.access_categories
+                        for cat in allowed_categories
+                    )
+
+                    # Check if username matches
+                    has_user_access = current_user.username in allowed_users
+
+                    print("Access evaluation:")
+                    print(f"- Admin access: {is_admin}")
+                    print(f"- Category match: {has_category_access}")
+                    print(f"- User match: {has_user_access}")
+
+                    has_access = is_admin or has_category_access or has_user_access
+                    print(f"- Final decision: {has_access}")
+
+                    if has_access:
+                        result["metadata"] = metadata
+                        filtered_results.append(result)
+                        print("Access granted - document included")
+                    else:
+                        print("Access denied - document filtered out")
+                except Exception as e:
+                    print(f"Error processing result metadata: {e}")
+                    continue
+
+            results = filtered_results
+            print(f"After access filtering: {len(results)} results")
+
+            if not results:
+                return QueryResponse(
+                    answer=(
+                        "No relevant documents found. This could be because:\n"
+                        "1. No documents match your query closely enough\n"
+                        "2. You don't have access to the relevant documents\n"
+                        "3. The documents haven't been properly indexed"
+                    ),
+                    sources=[],
+                )
+
+        except Exception as e:
+            print(f"Error during vector store search: {type(e).__name__}: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error searching documents",
+            )
+
+        # Format and sort sources by relevance
+        sources = [
+            {
+                "text": r["text"],
+                "metadata": r["metadata"],
+                "relevance": r.get("relevance", 0),
             }
+            for r in results
+        ]
+        sources.sort(key=lambda x: x["relevance"], reverse=True)
 
-        # Search vector store with access control filters
-        print("Searching vector store with access filters...")
-        if query_request.index_name:
-            results = vector_store.search(
-                query_request.index_name, query_embedding, filters=filters
-            )
-        else:
-            results = vector_store.search_all_collections(
-                query_embedding, filters=filters
-            )
-        print(f"Found {len(results)} results from vector store")
-
-        # Parse metadata JSON strings
-        filtered_results = []
-        for result in results:
-            try:
-                if isinstance(result["metadata"], str):
-                    result["metadata"] = json.loads(result["metadata"])
-                filtered_results.append(result)
-            except (json.JSONDecodeError, Exception) as e:
-                print(f"Error processing result: {e}")
-                continue
-
-        results = filtered_results
-        print(f"After filtering: {len(results)} results")
-
-        if not results:
-            print("No results found after filtering")
+        if not sources:
             return QueryResponse(answer="No relevant documents found.", sources=[])
 
-        # Generate answer using LLM
+        # Generate answer using LLM with all accessible sources
         print("Generating answer using LLM...")
-        answer = llm_client.get_completion(query_request.query, results)
+        answer = llm_client.get_completion(query_request.query, sources)
         print("Answer generated successfully")
 
-        # Format sources
-        sources = [{"text": r["text"], "metadata": r["metadata"]} for r in results]
+        # If the answer indicates no relevant information, return without sources
+        if (
+            "no relevant information" in answer.lower()
+            or "do not contain information" in answer.lower()
+            or "not contain information" in answer.lower()
+        ):
+            return QueryResponse(answer=answer, sources=[])
 
-        return QueryResponse(answer=answer, sources=sources)
+        # Extract citation numbers from the answer
+        import re
+
+        # Map superscript numbers to regular numbers
+        superscript_map = {
+            "¹": 1,
+            "²": 2,
+            "³": 3,
+            "⁴": 4,
+            "⁵": 5,
+            "⁶": 6,
+            "⁷": 7,
+            "⁸": 8,
+            "⁹": 9,
+        }
+
+        # Find all superscript numbers and convert them to regular numbers
+        citations = set()
+        for match in re.findall(r"([¹²³⁴⁵⁶⁷⁸⁹])", answer):
+            if match in superscript_map:
+                citations.add(superscript_map[match])
+
+        # Filter out low relevance sources first
+        RELEVANCE_THRESHOLD = 0.85  # Higher threshold for more relevant sources
+        relevant_sources = [
+            s for s in sources if s.get("relevance", 0) >= RELEVANCE_THRESHOLD
+        ]
+
+        # Group by filename and keep only the most relevant chunk for each file
+        unique_sources = {}
+        for source in relevant_sources:
+            filename = source["metadata"].get("filename")
+            relevance = source.get("relevance", 0)
+
+            if filename in unique_sources:
+                if relevance > unique_sources[filename]["relevance"]:
+                    unique_sources[filename] = source
+            else:
+                unique_sources[filename] = source
+
+        # Convert to list and sort by relevance
+        all_sources = list(unique_sources.values())
+        all_sources.sort(key=lambda x: x.get("relevance", 0), reverse=True)
+
+        # Only include sources that were actually cited in the answer
+        cited_sources = []
+        for idx, source in enumerate(all_sources, 1):
+            if idx in citations:
+                cited_sources.append(source)
+
+        # If no citations were found but we have highly relevant sources, include the most relevant one
+        if not cited_sources and all_sources:
+            # Only include the fallback source if it's highly relevant
+            most_relevant = all_sources[0]
+            if most_relevant.get("relevance", 0) >= RELEVANCE_THRESHOLD:
+                cited_sources = [most_relevant]
+
+        return QueryResponse(answer=answer, sources=cited_sources)
     except Exception as e:
         print(f"Error in query_documents: {type(e).__name__}: {str(e)}")
         print(

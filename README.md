@@ -1,116 +1,91 @@
-# RAG Application with Role-Based Access
+# RAG Application
 
-A Retrieval Augmented Generation (RAG) application that supports multiple document indexes and role-based access control.
+## Deployment
 
-## Features
+This application can be deployed using the provided `deploy.sh` script, which handles all necessary steps including SSL certificate management.
 
-- Multiple vector indexes for different document collections
-- Role-based access control for documents
-- Support for PDF, DOCX, and text file uploads
-- Azure OpenAI integration for embeddings and completions
-- Weaviate vector database for efficient similarity search
-- FastAPI backend with JWT authentication
-- React frontend (coming soon)
+### Prerequisites
 
-## Prerequisites
+1. SSH key for VM access:
+   ```bash
+   # The SSH key should already be set up at:
+   ~/.ssh/rag-app-key
+   ```
 
-- Python 3.8+
-- Docker and Docker Compose
-- Azure OpenAI API access
+2. Terraform state (for getting VM IP):
+   - Make sure you've run `terraform apply` in the terraform directory
+   - The script uses terraform output to get the VM IP
 
-## Setup
+### Deployment Process
 
-1. Clone the repository and navigate to the project directory:
+To deploy the application:
+
 ```bash
-cd rag-app
+# Make the script executable
+chmod +x deploy.sh
+
+# Run the deployment
+./deploy.sh
 ```
 
-2. Create and activate a virtual environment:
+The script will:
+1. Get the VM IP from Terraform output
+2. Copy all necessary configuration files
+3. Clone the latest code from the repository
+4. Build and start Docker containers
+5. Handle SSL certificate management
+
+### Infrastructure
+
+- Azure VM: 13.90.142.88
+- Domain: innov8nxt-factorygpt.com
+- Services:
+  - Frontend (React)
+  - Backend (FastAPI)
+  - Weaviate (Vector Database)
+  - Nginx (Reverse Proxy)
+  - Certbot (SSL Certificate Management)
+
+### Security
+
+- HTTPS enforced with automatic redirection
+- SSL certificates auto-renewed when within 30 days of expiry
+- Content Security Policy (CSP) headers configured
+- Other security headers:
+  - HSTS
+  - X-Frame-Options
+  - X-XSS-Protection
+  - X-Content-Type-Options
+  - Referrer-Policy
+
+### Troubleshooting
+
+If deployment fails:
+1. Check the script output for error messages
+2. Verify VM connectivity:
+   ```bash
+   ssh -i ~/.ssh/rag-app-key azureuser@13.90.142.88
+   ```
+3. Check Docker container logs:
+   ```bash
+   ssh -i ~/.ssh/rag-app-key azureuser@13.90.142.88 "cd ~/app && sudo docker compose logs"
+   ```
+4. Verify SSL certificates:
+   ```bash
+   ssh -i ~/.ssh/rag-app-key azureuser@13.90.142.88 "cd ~/app && sudo docker compose exec certbot certbot certificates"
+   ```
+
+### Manual Deployment
+
+If needed, you can manually deploy using:
+
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# SSH into the VM
+ssh -i ~/.ssh/rag-app-key azureuser@13.90.142.88
+
+# Update and restart the application
+cd ~/app
+git pull
+sudo docker compose down
+sudo docker compose up -d --build
 ```
-
-3. Install backend dependencies:
-```bash
-cd backend
-pip install -r requirements.txt
-```
-
-4. Copy the environment example file and fill in your credentials:
-```bash
-cp .env.example .env
-```
-Edit `.env` with your Azure OpenAI credentials and other settings.
-
-5. Start Weaviate using Docker Compose:
-```bash
-docker-compose up -d
-```
-
-6. Start the FastAPI server:
-```bash
-uvicorn app.main:app --reload
-```
-
-The API will be available at http://localhost:8000
-
-## API Documentation
-
-Once the server is running, visit http://localhost:8000/docs for the interactive API documentation.
-
-### Authentication
-
-The system has two default users for testing:
-- Admin user: username=admin, password=admin
-- Regular user: username=user, password=user
-
-Get a JWT token:
-```bash
-curl -X POST "http://localhost:8000/api/auth/token" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=admin&password=admin"
-```
-
-### Managing Indexes
-
-Create a new index (admin only):
-```bash
-curl -X POST "http://localhost:8000/api/indexes/my-index" \
-  -H "Authorization: Bearer {your-token}"
-```
-
-List available indexes:
-```bash
-curl "http://localhost:8000/api/indexes" \
-  -H "Authorization: Bearer {your-token}"
-```
-
-### Working with Documents
-
-Upload a document:
-```bash
-curl -X POST "http://localhost:8000/api/documents/my-index/upload" \
-  -H "Authorization: Bearer {your-token}" \
-  -F "file=@document.pdf"
-```
-
-Query documents:
-```bash
-curl -X POST "http://localhost:8000/api/documents/my-index/query" \
-  -H "Authorization: Bearer {your-token}" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "What is RAG?", "index_name": "my-index"}'
-```
-
-## Security Notes
-
-- Change the default SECRET_KEY in production
-- Use strong passwords
-- Implement proper user management (currently using in-memory storage)
-- Consider adding rate limiting
-- Review and adjust CORS settings
-
-## License
-
-MIT

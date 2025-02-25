@@ -1,0 +1,31 @@
+# Application environment variables
+app_env_vars = {
+  # Authentication
+  secret_key                            = "your-secret-key-here"
+  
+  # Azure OpenAI Settings
+  azure_openai_api_key                 = "your-azure-openai-api-key"
+  azure_openai_endpoint                = "https://your-resource-name.openai.azure.com"
+  azure_openai_embedding_deployment_name = "text-embedding-ada-002"  # For embeddings generation
+  azure_openai_chat_deployment_name     = "gpt-4"                   # For chat completions
+  azure_openai_api_version             = "2023-05-15"
+  
+  # Weaviate Settings (internal Docker network communication, no HTTPS needed)
+  weaviate_url                         = "http://weaviate:8080"     # Internal Docker network URL, secured by network isolation
+  weaviate_auth_enabled                = false                      # Anonymous access within Docker network
+  weaviate_persistence_data_path       = "/var/lib/weaviate"       # Data persistence path on host
+  weaviate_default_vectorizer_module   = "none"                    # Using Azure OpenAI for vectors instead
+  weaviate_cluster_hostname            = "node1"                   # Single node setup name
+
+  # CORS Settings
+  additional_cors_origins              = [                         # Additional allowed origins beyond default ones
+    # "https://staging.innov8nxt-factorygpt.com",                # Example: Staging environment
+    # "https://test.innov8nxt-factorygpt.com"                    # Example: Testing environment
+  ]
+}
+
+# Optional overrides for default variables
+# resource_group_name = "Bcdilabs-Resources"
+# location = "eastus"
+# domain_name = "innov8nxt-factorygpt.com"
+# vm_size = "Standard_D4s_v3"
