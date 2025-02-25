@@ -1,6 +1,7 @@
 import '@mantine/core/styles.css'
 import {
   AppShell,
+  UnstyledButton,
   Group,
   Button,
   Modal,
@@ -13,12 +14,17 @@ import {
 import { Outlet, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useState } from 'react'
+import { IconChevronRight, IconChevronDown } from '@tabler/icons-react'
 import {
   IconRobot,
   IconSend,
   IconMicrophone,
   IconUpload,
-  IconHistory
+  IconHistory,
+  IconTools,
+  IconUsers,
+  IconBuildingFactory2,
+  IconShieldCheck
 } from '@tabler/icons-react'
 
 export default function Layout () {
@@ -27,6 +33,31 @@ export default function Layout () {
   const [loginModalOpen, setLoginModalOpen] = useState(false)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [expandedSections, setExpandedSections] = useState({
+    production: true,
+    workforce: true,
+    business: true,
+    safety: true
+  })
+
+  const [expandedSubSections, setExpandedSubSections] = useState({
+    documentation: true
+  })
+
+  const toggleSection = (section: keyof typeof expandedSections) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }))
+  }
+
+  const toggleSubSection = (section: keyof typeof expandedSubSections) => {
+    setExpandedSubSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }))
+  }
+
   const handleLogin = async () => {
     try {
       await login(username, password)
@@ -95,7 +126,7 @@ export default function Layout () {
                 style={{ marginRight: '12px' }}
               />
               <Text fw={700} fz='xl' style={{ color: 'white' }}>
-                Manufacturing GPT
+                Innov8 GPT
               </Text>
             </Group>
           </Link>
@@ -107,7 +138,340 @@ export default function Layout () {
               overflowY: 'auto',
               height: '100%'
             }}
-          ></div>
+          >
+            {/* Production & Operations */}
+            <UnstyledButton
+              p='xs'
+              w='100%'
+              c='white'
+              fw={600}
+              fz='md'
+              onClick={() => toggleSection('production')}
+              styles={{
+                root: {
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                  }
+                }
+              }}
+            >
+              <Group gap='xs' justify='space-between'>
+                <Group gap='xs'>
+                  <IconBuildingFactory2 size={20} />
+                  Production & Operations
+                </Group>
+                {expandedSections.production ? (
+                  <IconChevronDown size={16} />
+                ) : (
+                  <IconChevronRight size={16} />
+                )}
+              </Group>
+            </UnstyledButton>
+            <div
+              style={{
+                paddingLeft: '32px',
+                marginBottom: '4px',
+                display: expandedSections.production ? 'block' : 'none',
+                opacity: expandedSections.production ? 1 : 0,
+                transition: 'opacity 200ms ease'
+              }}
+            >
+              <UnstyledButton
+                p='xs'
+                w='100%'
+                c='rgba(255, 255, 255, 0.7)'
+                fz='sm'
+                mb={1}
+                styles={{
+                  root: {
+                    '&:hover': {
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      color: 'white'
+                    }
+                  }
+                }}
+              >
+                Predictive Maintenance
+              </UnstyledButton>
+              <UnstyledButton
+                p='xs'
+                w='100%'
+                c='rgba(255, 255, 255, 0.7)'
+                fz='sm'
+                mb={1}
+                styles={{
+                  root: {
+                    '&:hover': {
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      color: 'white'
+                    }
+                  }
+                }}
+              >
+                Process Management
+              </UnstyledButton>
+              <UnstyledButton
+                p='xs'
+                w='100%'
+                c='rgba(255, 255, 255, 0.7)'
+                fz='sm'
+                mb={1}
+                styles={{
+                  root: {
+                    '&:hover': {
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      color: 'white'
+                    }
+                  }
+                }}
+              >
+                Process Automation
+              </UnstyledButton>
+            </div>
+
+            {/* Workforce Management */}
+            <UnstyledButton
+              p='xs'
+              w='100%'
+              c='white'
+              fw={600}
+              fz='md'
+              mt={-4}
+              onClick={() => toggleSection('workforce')}
+              styles={{
+                root: {
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                  }
+                }
+              }}
+            >
+              <Group gap='xs' justify='space-between'>
+                <Group gap='xs'>
+                  <IconUsers size={20} />
+                  Workforce Management
+                </Group>
+                {expandedSections.workforce ? (
+                  <IconChevronDown size={16} />
+                ) : (
+                  <IconChevronRight size={16} />
+                )}
+              </Group>
+            </UnstyledButton>
+            <div
+              style={{
+                paddingLeft: '32px',
+                marginBottom: '4px',
+                display: expandedSections.workforce ? 'block' : 'none',
+                opacity: expandedSections.workforce ? 1 : 0,
+                transition: 'opacity 200ms ease'
+              }}
+            >
+              <UnstyledButton
+                p='xs'
+                w='100%'
+                c='rgba(255, 255, 255, 0.7)'
+                fz='sm'
+                mb={1}
+                styles={{
+                  root: {
+                    '&:hover': {
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      color: 'white'
+                    }
+                  }
+                }}
+              >
+                Resource Management
+              </UnstyledButton>
+              <UnstyledButton
+                p='xs'
+                w='100%'
+                c='rgba(255, 255, 255, 0.7)'
+                fz='sm'
+                mb={1}
+                styles={{
+                  root: {
+                    '&:hover': {
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      color: 'white'
+                    }
+                  }
+                }}
+              >
+                Training Programs
+              </UnstyledButton>
+            </div>
+
+            {/* Business Development */}
+            <UnstyledButton
+              p='xs'
+              w='100%'
+              c='white'
+              fw={600}
+              fz='md'
+              mt={-4}
+              onClick={() => toggleSection('business')}
+              styles={{
+                root: {
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                  }
+                }
+              }}
+            >
+              <Group gap='xs' justify='space-between'>
+                <Group gap='xs'>
+                  <IconTools size={20} />
+                  Business Development
+                </Group>
+                {expandedSections.business ? (
+                  <IconChevronDown size={16} />
+                ) : (
+                  <IconChevronRight size={16} />
+                )}
+              </Group>
+            </UnstyledButton>
+            <div
+              style={{
+                paddingLeft: '32px',
+                marginBottom: '4px',
+                display: expandedSections.business ? 'block' : 'none',
+                opacity: expandedSections.business ? 1 : 0,
+                transition: 'opacity 200ms ease'
+              }}
+            >
+              <UnstyledButton
+                p='xs'
+                w='100%'
+                c='rgba(255, 255, 255, 0.7)'
+                fz='sm'
+                mb={1}
+                onClick={() => toggleSubSection('documentation')}
+                styles={{
+                  root: {
+                    '&:hover': {
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      color: 'white'
+                    }
+                  }
+                }}
+              >
+                <Group gap='xs' justify='space-between'>
+                  <Text>Documentation</Text>
+                  {expandedSubSections.documentation ? (
+                    <IconChevronDown size={16} />
+                  ) : (
+                    <IconChevronRight size={16} />
+                  )}
+                </Group>
+              </UnstyledButton>
+              <div
+                style={{
+                  paddingLeft: '16px',
+                  display: expandedSubSections.documentation ? 'block' : 'none',
+                  opacity: expandedSubSections.documentation ? 1 : 0,
+                  transition: 'opacity 200ms ease'
+                }}
+              >
+                <Link to='/brochure' style={{ textDecoration: 'none' }}>
+                  <UnstyledButton
+                    p='xs'
+                    w='100%'
+                    c='rgba(255, 255, 255, 0.7)'
+                    fz='sm'
+                    mb={1}
+                    styles={{
+                      root: {
+                        '&:hover': {
+                          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                          color: 'white'
+                        }
+                      }
+                    }}
+                  >
+                    One-Page Brochure Creation
+                  </UnstyledButton>
+                </Link>
+                <Link to='/rfp' style={{ textDecoration: 'none' }}>
+                  <UnstyledButton
+                    p='xs'
+                    w='100%'
+                    c='rgba(255, 255, 255, 0.7)'
+                    fz='sm'
+                    mb={1}
+                    styles={{
+                      root: {
+                        '&:hover': {
+                          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                          color: 'white'
+                        }
+                      }
+                    }}
+                  >
+                    Respond to an RFP
+                  </UnstyledButton>
+                </Link>
+              </div>
+            </div>
+
+            {/* Safety & Compliance */}
+            <UnstyledButton
+              p='xs'
+              w='100%'
+              c='white'
+              fw={600}
+              fz='md'
+              mt={-4}
+              onClick={() => toggleSection('safety')}
+              styles={{
+                root: {
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                  }
+                }
+              }}
+            >
+              <Group gap='xs' justify='space-between'>
+                <Group gap='xs'>
+                  <IconShieldCheck size={20} />
+                  Safety & Compliance
+                </Group>
+                {expandedSections.safety ? (
+                  <IconChevronDown size={16} />
+                ) : (
+                  <IconChevronRight size={16} />
+                )}
+              </Group>
+            </UnstyledButton>
+            <div
+              style={{
+                paddingLeft: '32px',
+                marginBottom: '4px',
+                display: expandedSections.safety ? 'block' : 'none',
+                opacity: expandedSections.safety ? 1 : 0,
+                transition: 'opacity 200ms ease'
+              }}
+            >
+              <UnstyledButton
+                p='xs'
+                w='100%'
+                c='rgba(255, 255, 255, 0.7)'
+                fz='sm'
+                mb={1}
+                styles={{
+                  root: {
+                    '&:hover': {
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      color: 'white'
+                    }
+                  }
+                }}
+              >
+                Safety Management
+              </UnstyledButton>
+            </div>
+          </div>
         </AppShell.Section>
 
         <AppShell.Section style={{ flex: '0 0 auto' }}>
@@ -121,7 +485,7 @@ export default function Layout () {
             }}
           >
             <Image
-              src='/bcdilogo.png'
+              src='/BCD ILABS 1.png'
               alt='BCDI Logo'
               height={70}
               fit='contain'
