@@ -14,7 +14,6 @@ import {
 import { Outlet, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useState } from 'react'
-import { IconChevronRight, IconChevronDown } from '@tabler/icons-react'
 import {
   IconRobot,
   IconSend,
@@ -40,23 +39,23 @@ export default function Layout () {
     safety: true
   })
 
-  const [expandedSubSections, setExpandedSubSections] = useState({
-    documentation: true
-  })
+  // const [expandedSubSections, setExpandedSubSections] = useState({
+  //   documentation: true
+  // })
 
-  const toggleSection = (section: keyof typeof expandedSections) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }))
-  }
+  // const toggleSection = (section: keyof typeof expandedSections) => {
+  //   setExpandedSections(prev => ({
+  //     ...prev,
+  //     [section]: !prev[section]
+  //   }))
+  // }
 
-  const toggleSubSection = (section: keyof typeof expandedSubSections) => {
-    setExpandedSubSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }))
-  }
+  // const toggleSubSection = (section: keyof typeof expandedSubSections) => {
+  //   setExpandedSubSections(prev => ({
+  //     ...prev,
+  //     [section]: !prev[section]
+  //   }))
+  // }
 
   const handleLogin = async () => {
     try {
