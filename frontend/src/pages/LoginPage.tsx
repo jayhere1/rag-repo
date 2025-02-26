@@ -32,8 +32,8 @@ export default function LoginPage () {
         message: 'Logged in successfully',
         color: 'green'
       })
-      // Navigate to the protected page user was trying to access, or default to /indexes
-      const destination = location.state?.from?.pathname || '/indexes'
+      // Navigate to the protected page user was trying to access, or default to /channels
+      const destination = location.state?.from?.pathname || '/channels'
       navigate(destination)
     } catch (error) {
       notifications.show({

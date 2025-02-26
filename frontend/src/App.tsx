@@ -84,7 +84,6 @@ function App () {
                       </ChatProvider>
                     }
                   />
-                  <Route path='query' element={<QueryPage />} />
                   <Route
                     path='query'
                     element={
@@ -97,16 +96,19 @@ function App () {
                   <Route path='brochure' element={<BrochurePage />} />
                   <Route element={<AdminRoute />}>
                     <Route path='documents' element={<DocumentsPage />} />
-                    <Route index element={<Navigate to='/indexes' replace />} />
-                    <Route path='indexes' element={<IndexesPage />} />
                     <Route
-                      path='indexes/:indexName/documents'
+                      index
+                      element={<Navigate to='/channels' replace />}
+                    />
+                    <Route path='channels' element={<IndexesPage />} />
+                    <Route
+                      path='channels/:indexName/documents'
                       element={<DocumentsPage />}
                     />
                   </Route>
                   <Route element={<ProtectedRoute />}>
                     <Route
-                      path='indexes/:indexName/query'
+                      path='channels/:indexName/query'
                       element={
                         <ChatProvider pageType='query'>
                           <QueryPage />
@@ -114,7 +116,7 @@ function App () {
                       }
                     />
                     <Route
-                      path='indexes/:indexName/chat'
+                      path='channels/:indexName/chat'
                       element={
                         <ChatProvider pageType='chat'>
                           <ChatPage />

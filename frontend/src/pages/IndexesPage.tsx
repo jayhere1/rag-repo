@@ -38,7 +38,7 @@ export default function IndexesPage () {
       setNewIndexDescription('')
       notifications.show({
         title: 'Success',
-        message: 'Index created successfully',
+        message: 'Channel created successfully',
         color: 'green'
       })
     },
@@ -46,7 +46,7 @@ export default function IndexesPage () {
       notifications.show({
         title: 'Error',
         message:
-          error instanceof Error ? error.message : 'Failed to create index',
+          error instanceof Error ? error.message : 'Failed to create channel',
         color: 'red'
       })
     }
@@ -66,7 +66,7 @@ export default function IndexesPage () {
       queryClient.invalidateQueries({ queryKey: ['indexes'] })
       notifications.show({
         title: 'Success',
-        message: 'Index deleted successfully',
+        message: 'Channel deleted successfully',
         color: 'green'
       })
     },
@@ -74,7 +74,7 @@ export default function IndexesPage () {
       notifications.show({
         title: 'Error',
         message:
-          error instanceof Error ? error.message : 'Failed to delete index',
+          error instanceof Error ? error.message : 'Failed to delete channel',
         color: 'red'
       })
     }
@@ -82,10 +82,10 @@ export default function IndexesPage () {
 
   const handleDeleteIndex = (indexName: string): void => {
     modals.openConfirmModal({
-      title: 'Delete Index',
+      title: 'Delete Channel',
       children: (
         <Text size='sm'>
-          Are you sure you want to delete the index "{indexName}"? This action
+          Are you sure you want to delete the channel "{indexName}"? This action
           cannot be undone.
         </Text>
       ),
@@ -116,14 +116,14 @@ export default function IndexesPage () {
   return (
     <Container size='lg'>
       <Title order={2} mb='xl'>
-        Index Management
+        Channel Management
       </Title>
 
       <Tabs defaultValue='manage'>
         <Tabs.List>
-          <Tabs.Tab value='manage'>Manage Indexes</Tabs.Tab>
+          <Tabs.Tab value='manage'>Manage Channels</Tabs.Tab>
           {user?.roles?.includes('admin') && (
-            <Tabs.Tab value='create'>Create New Index</Tabs.Tab>
+            <Tabs.Tab value='create'>Create New Channel</Tabs.Tab>
           )}
         </Tabs.List>
 
@@ -178,7 +178,7 @@ export default function IndexesPage () {
                     {isLoadingDocuments ? (
                       <Text>Loading documents...</Text>
                     ) : documentsList.documents.length === 0 ? (
-                      <Text color='dimmed'>No documents in this index</Text>
+                      <Text color='dimmed'>No documents in this channel</Text>
                     ) : (
                       <List>
                         {documentsList.documents.map((doc: Document) => (
@@ -194,7 +194,7 @@ export default function IndexesPage () {
             ))}
             {!isLoading && indexList.length === 0 && (
               <Text ta='center' color='dimmed'>
-                No indexes found. Create one to get started.
+                No channels found. Create one to get started.
               </Text>
             )}
           </Card>
@@ -206,15 +206,15 @@ export default function IndexesPage () {
               <form onSubmit={handleCreateIndex}>
                 <Stack>
                   <TextInput
-                    label='Index Name'
-                    placeholder='Enter index name'
+                    label='Channel Name'
+                    placeholder='Enter channel name'
                     value={newIndexName}
                     onChange={e => setNewIndexName(e.target.value)}
                     required
                   />
                   <TextInput
                     label='Description'
-                    placeholder='Enter index description'
+                    placeholder='Enter channel description'
                     value={newIndexDescription}
                     onChange={e => setNewIndexDescription(e.target.value)}
                   />
@@ -223,7 +223,7 @@ export default function IndexesPage () {
                     loading={createIndexMutation.isPending}
                     fullWidth
                   >
-                    Create Index
+                    Create Channel
                   </Button>
                 </Stack>
               </form>
