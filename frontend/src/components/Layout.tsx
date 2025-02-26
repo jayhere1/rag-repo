@@ -32,12 +32,12 @@ export default function Layout () {
   const [loginModalOpen, setLoginModalOpen] = useState(false)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [expandedSections, setExpandedSections] = useState({
-    production: true,
-    workforce: true,
-    business: true,
-    safety: true
-  })
+  // const [expandedSections, setExpandedSections] = useState({
+  //   production: true,
+  //   workforce: true,
+  //   business: true,
+  //   safety: true
+  // })
 
   // const [expandedSubSections, setExpandedSubSections] = useState({
   //   documentation: true
