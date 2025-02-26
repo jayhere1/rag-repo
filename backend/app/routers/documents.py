@@ -111,26 +111,27 @@ async def list_documents(
                 allowed_categories = metadata.get("allowed_categories", [])
                 allowed_users = metadata.get("allowed_users", [])
 
-                print("Access check details:")
-                print(f"- Document metadata: {json.dumps(metadata, indent=2)}")
-                print(f"- User categories: {current_user.access_categories}")
-                print(f"- Username: {current_user.username}")
-
                 # Admin has access to all documents
                 is_admin = any(role.lower() == "admin" for role in current_user.roles)
 
                 # Check if user has access to any of the document's categories
-                has_category_access = any(
-                    cat in current_user.access_categories for cat in allowed_categories
-                )
+                has_category_access = False
+                if allowed_categories:
+                    has_category_access = any(
+                        cat in current_user.access_categories
+                        for cat in allowed_categories
+                    )
+                else:
+                    # If no categories are specified, default to true for admin
+                    has_category_access = is_admin
 
                 # Check if username matches
                 has_user_access = current_user.username in allowed_users
 
-                print("Access evaluation:")
-                print(f"- Admin access: {is_admin}")
-                print(f"- Category match: {has_category_access}")
-                print(f"- User match: {has_user_access}")
+                # print("Access evaluation:")
+                # print(f"- Admin access: {is_admin}")
+                # print(f"- Category match: {has_category_access}")
+                # print(f"- User match: {has_user_access}")
 
                 has_access = is_admin or has_category_access or has_user_access
                 print(f"- Final decision: {has_access}")
@@ -364,29 +365,24 @@ async def query_documents(
                     allowed_categories = metadata.get("allowed_categories", [])
                     allowed_users = metadata.get("allowed_users", [])
 
-                    print("Access check details:")
-                    print(f"- Document metadata: {json.dumps(metadata, indent=2)}")
-                    print(f"- User categories: {current_user.access_categories}")
-                    print(f"- Username: {current_user.username}")
-
                     # Admin has access to all documents
                     is_admin = any(
                         role.lower() == "admin" for role in current_user.roles
                     )
 
                     # Check if user has access to any of the document's categories
-                    has_category_access = any(
-                        cat in current_user.access_categories
-                        for cat in allowed_categories
-                    )
+                    has_category_access = False
+                    if allowed_categories:
+                        has_category_access = any(
+                            cat in current_user.access_categories
+                            for cat in allowed_categories
+                        )
+                    else:
+                        # If no categories are specified, default to true for admin
+                        has_category_access = is_admin
 
                     # Check if username matches
                     has_user_access = current_user.username in allowed_users
-
-                    print("Access evaluation:")
-                    print(f"- Admin access: {is_admin}")
-                    print(f"- Category match: {has_category_access}")
-                    print(f"- User match: {has_user_access}")
 
                     has_access = is_admin or has_category_access or has_user_access
                     print(f"- Final decision: {has_access}")
@@ -508,10 +504,10 @@ async def query_documents(
 
         return QueryResponse(answer=answer, sources=cited_sources)
     except Exception as e:
-        print(f"Error in query_documents: {type(e).__name__}: {str(e)}")
-        print(
-            f"Error details: {e.__dict__ if hasattr(e, '__dict__') else 'No additional details'}"
-        )
+        # print(f"Error in query_documents: {type(e).__name__}: {str(e)}")
+        # print(
+        #     f"Error details: {e.__dict__ if hasattr(e, '__dict__') else 'No additional details'}"
+        # )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )

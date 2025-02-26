@@ -47,15 +47,24 @@ export default function DocumentsPage () {
 
   const fetchAllDocuments = async (page: number = 1) => {
     try {
+      console.log('Fetching documents for page:', page)
+      console.log('Available indexes:', indexList)
+
       setIsLoading(true)
-      const documentsPromises = indexList.map((indexName: string) =>
-        documents.list(indexName, page, itemsPerPage).catch(error => {
+      const documentsPromises = indexList.map((indexName: string) => {
+        console.log(`Fetching documents for index: ${indexName}`)
+        return documents.list(indexName, page, itemsPerPage).catch(error => {
           console.error(`Error fetching documents for ${indexName}:`, error)
           return { documents: [] }
         })
-      )
+      })
+
       const results = await Promise.all(documentsPromises)
+      console.log('Document results by index:', results)
+
       const allDocs = results.flatMap(result => result.documents || [])
+      console.log('Combined documents:', allDocs)
+
       setAllDocuments(allDocs)
 
       // Calculate total pages based on the total number of documents
@@ -107,6 +116,13 @@ export default function DocumentsPage () {
       <Stack>
         <Group justify='apart'>
           <Title order={2}>Document Management</Title>
+          <Button
+            onClick={() => fetchAllDocuments(currentPage)}
+            variant='outline'
+            disabled={isLoading}
+          >
+            Refresh Documents
+          </Button>
         </Group>
 
         {user?.roles?.includes('admin') && indexList.length > 0 && (
@@ -160,22 +176,38 @@ export default function DocumentsPage () {
                   if (!selectedFile || !selectedIndex) return
 
                   try {
+                    console.log('Starting document upload...')
                     setUploadLoading(true)
-                    await documents.upload(selectedIndex, selectedFile, {
-                      categories: selectedCategories,
-                      users: selectedUsers
-                    })
+
+                    const result = await documents.upload(
+                      selectedIndex,
+                      selectedFile,
+                      {
+                        categories: selectedCategories,
+                        users: selectedUsers
+                      }
+                    )
+
+                    console.log('Upload successful:', result)
+
                     notifications.show({
                       title: 'Success',
                       message: 'Document uploaded successfully',
                       color: 'green'
                     })
+
                     setSelectedFile(null)
                     setSelectedIndex('')
                     setSelectedCategories([])
                     setSelectedUsers([])
-                    fetchAllDocuments()
+
+                    // Force refresh of document list
+                    console.log('Refreshing document list after upload...')
+                    setTimeout(() => {
+                      fetchAllDocuments(currentPage)
+                    }, 1000) // Add a small delay to ensure backend processing is complete
                   } catch (error) {
+                    console.error('Upload error:', error)
                     notifications.show({
                       title: 'Error',
                       message:

@@ -67,8 +67,11 @@ class VectorStore:
 
             result = query.do()
             if result and "data" in result:
-                docs = result["data"]["Get"][collection_name]
-                return len(docs) > 0
+                # Check if the collection exists in the result
+                if collection_name in result["data"].get("Get", {}):
+                    docs = result["data"]["Get"][collection_name]
+                    if docs is not None:
+                        return len(docs) > 0
             return False
         except Exception as e:
             print(f"Error checking for duplicates: {str(e)}")
